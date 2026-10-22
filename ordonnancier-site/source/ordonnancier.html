@@ -1,0 +1,1640 @@
+<title>Ordonnancier</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: cabinet sidebar + working column; each prescription renders as an A5/A4 sheet */
+:root{
+  --bg:#F1F5F4; --surface:#FFFFFF; --sunken:#E7EEEC; --line:#D3DEDB; --line-strong:#AFC0BB;
+  --ink:#12201D; --muted:#566A65; --accent:#0E6B5C; --accent-hover:#0A5649; --on-accent:#FFFFFF; --accent-soft:#DDEFEA;
+  --ok:#17744A; --ok-soft:#DFF2E8; --warn:#8A5700; --warn-soft:#FAEFD7; --bad:#B42318; --bad-soft:#FBE5E2;
+  --paper:#FFFFFF; --paper-ink:#12201D; --paper-muted:#566A65; --paper-line:#D7DFDD; --paper-tint:#F3F6F5; --paper-accent:#0E6B5C;
+  --shadow:0 1px 2px rgba(18,32,29,.06),0 6px 20px rgba(18,32,29,.07);
+  --scrim:rgba(18,32,29,.45);
+  --f-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --r:8px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0C1513; --surface:#14201D; --sunken:#1A2925; --line:#26372F; --line-strong:#38504A;
+    --ink:#E3EDEA; --muted:#93A9A3; --accent:#6CD2BC; --accent-hover:#8FE0CF; --on-accent:#0C1513; --accent-soft:#1B3832;
+    --ok:#5ACF97; --ok-soft:#15342A; --warn:#EDB453; --warn-soft:#3A2C12; --bad:#FF8B7F; --bad-soft:#3E1D1B;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25); --scrim:rgba(0,0,0,.6);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0C1513; --surface:#14201D; --sunken:#1A2925; --line:#26372F; --line-strong:#38504A;
+  --ink:#E3EDEA; --muted:#93A9A3; --accent:#6CD2BC; --accent-hover:#8FE0CF; --on-accent:#0C1513; --accent-soft:#1B3832;
+  --ok:#5ACF97; --ok-soft:#15342A; --warn:#EDB453; --warn-soft:#3A2C12; --bad:#FF8B7F; --bad-soft:#3E1D1B;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25); --scrim:rgba(0,0,0,.6);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;letter-spacing:-.01em}
+h1{font-size:1.65rem;font-weight:700}
+h2{font-size:1.15rem;font-weight:700}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.eyebrow{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+
+/* Shell */
+.shell{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100vh}
+.side{background:var(--surface);border-right:1px solid var(--line);padding-block:24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:16px;display:flex;flex-direction:column;gap:24px;position:sticky;top:0;height:100vh}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--f-display);font-weight:700;font-size:1.2rem;padding-inline:8px}
+.brand-mark{width:30px;height:30px;border:2px solid var(--accent);border-radius:7px;position:relative;flex:none}
+.brand-mark::before,.brand-mark::after{content:"";position:absolute;background:var(--accent);border-radius:1px}
+.brand-mark::before{left:12px;top:6px;width:2px;height:14px}
+.brand-mark::after{left:6px;top:12px;width:14px;height:2px}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav button{all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:6px;color:var(--muted);font-weight:500}
+.nav button:hover{background:var(--sunken);color:var(--ink)}
+.nav button[aria-current="page"]{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.nav button:focus-visible{outline:2px solid var(--accent)}
+.side-foot{margin-top:auto;font-size:.78rem;color:var(--muted);padding-inline:8px;display:flex;gap:8px;align-items:flex-start}
+.side-foot .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);margin-top:6px;flex:none}
+.side-foot .dot.local{background:var(--warn)}
+main{min-width:0;padding-block:28px 64px;padding-left:32px;padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:22px}
+.wrap.wide{max-width:1560px}
+@media (min-width:861px){main{padding-right:max(32px,env(safe-area-inset-right,0px))}}
+@media (max-width:860px){
+  .shell{display:block}
+  .side{position:static;height:auto;flex-direction:row;align-items:center;gap:12px;padding-block:10px;padding-right:max(16px,env(safe-area-inset-right,0px));border-right:0;border-bottom:1px solid var(--line);overflow:hidden}
+  .brand{padding:0}
+  .brand span{display:none}
+  .nav{flex-direction:row;overflow-x:auto;min-width:0;flex:1;scrollbar-width:none}
+  .nav::-webkit-scrollbar{display:none}
+  .nav button{white-space:nowrap;padding:8px 10px}
+  .side-foot{display:none}
+  main{padding-left:max(16px,env(safe-area-inset-left,0px));padding-block:20px 80px}
+  h1{font-size:1.35rem}
+}
+
+/* Generic */
+.page-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 20px}
+.page-head .title{display:flex;flex-direction:column;gap:4px;min-width:0}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{appearance:none;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);padding:8px 14px;border-radius:6px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;line-height:1.3;white-space:nowrap}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+.btn.soft{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
+.btn.soft:hover{border-color:var(--accent)}
+.btn.danger{color:var(--bad);border-color:transparent;background:transparent}
+.btn.danger:hover{background:var(--bad-soft)}
+.btn.danger-solid{background:var(--bad);border-color:var(--bad);color:var(--surface)}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+.btn.ghost:hover{color:var(--ink);background:var(--sunken)}
+.btn.sm{padding:5px 10px;font-size:.85rem}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px}
+.card-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap;background:var(--accent-soft);color:var(--accent)}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.banner{display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:14px 18px;border-radius:var(--r);background:var(--warn-soft);color:var(--ink);border:1px solid color-mix(in srgb,var(--warn) 30%,transparent)}
+.banner p{margin:0;max-width:72ch}
+.banner strong{color:var(--warn)}
+.banner.bad{background:var(--bad-soft);border-color:color-mix(in srgb,var(--bad) 30%,transparent)}
+.banner.bad strong{color:var(--bad)}
+.note{font-size:.82rem;color:var(--muted);margin:0;max-width:80ch}
+
+/* Fields */
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field>span{font-size:.8rem;font-weight:500;color:var(--muted)}
+.field small{color:var(--muted);font-size:.76rem}
+input[type=text],input[type=email],input[type=tel],input[type=number],input[type=date],input[type=search],input:not([type]),select,textarea{width:100%;min-width:0;background:var(--surface);border:1px solid var(--line-strong);border-radius:6px;padding:8px 10px;line-height:1.35}
+textarea{resize:vertical;min-height:38px}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.grid{display:grid;gap:14px 16px;grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+.span2{grid-column:span 2}
+.span-all{grid-column:1/-1}
+@media (max-width:520px){.span2{grid-column:1/-1}}
+.check{display:flex;gap:10px;align-items:flex-start;cursor:pointer}
+.check input,.check-i input{accent-color:var(--accent)}
+.check input{margin-top:3px}
+
+/* KPIs & lists */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;display:flex;flex-direction:column;gap:4px}
+.kpi .v{font-family:var(--f-mono);font-size:1.5rem;font-weight:500}
+.dash-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+@media (max-width:400px){.dash-cols{grid-template-columns:minmax(0,1fr)}}
+.mini-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.mini-list li{border-top:1px solid var(--line)}
+.mini-list li:first-child{border-top:0}
+.mini-list button{all:unset;box-sizing:border-box;width:100%;cursor:pointer;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:10px 6px;border-radius:6px}
+.mini-list button:hover{background:var(--sunken)}
+.mini-list button:focus-visible{outline:2px solid var(--accent)}
+.mini-list .who{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mini-list .sub{font-size:.82rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mini-list .meta{font-size:.82rem;color:var(--muted);text-align:right;white-space:nowrap}
+.empty-note{color:var(--muted);padding:8px 6px;margin:0}
+.empty{background:var(--surface);border:1px dashed var(--line-strong);border-radius:var(--r);padding:36px 28px;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:28px;align-items:center}
+.empty h2{font-size:1.45rem;margin-bottom:8px}
+.empty p{margin:0 0 18px;color:var(--muted);max-width:56ch}
+.empty ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;color:var(--muted)}
+.empty ol strong{color:var(--ink);font-weight:600}
+@media (max-width:760px){.empty{grid-template-columns:minmax(0,1fr);padding:24px 18px}}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.search{max-width:320px}
+.tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+table.list{width:100%;border-collapse:collapse;min-width:680px}
+table.list th{text-align:left;font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:11px 14px;border-bottom:1px solid var(--line);background:var(--sunken);white-space:nowrap}
+table.list td{padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
+table.list tbody tr:last-child td{border-bottom:0}
+table.list tbody tr[data-act]{cursor:pointer}
+table.list tbody tr[data-act]:hover{background:var(--sunken)}
+table.list tbody tr:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+table.list .r{text-align:right}
+table.list .clip{max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.list-empty{padding:28px;text-align:center;color:var(--muted)}
+
+/* Editor */
+.editor{display:flex;flex-direction:column;gap:16px}
+.ed-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:20px;align-items:start}
+.ed-preview{display:none}
+@media (min-width:1240px){
+  .ed-layout{grid-template-columns:minmax(0,1fr) minmax(360px,.7fr)}
+  .ed-preview{display:block;position:sticky;top:16px;max-height:calc(100vh - 32px);overflow:auto;border-radius:8px;background:var(--sunken);border:1px solid var(--line);padding:12px}
+  .only-narrow{display:none}
+}
+.prev-cap{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}
+.ed-preview .paper{margin:0}
+.rxline{display:grid;grid-template-columns:28px minmax(0,1fr) 32px;gap:10px;padding:14px 0;border-bottom:1px solid var(--line);align-items:start}
+.rxline:last-child{border-bottom:0}
+.rx-num{font-family:var(--f-mono);color:var(--accent);font-weight:500;padding-top:26px;text-align:right}
+.rxline.tx .rx-num{padding-top:24px}
+.rx-body{display:flex;flex-direction:column;gap:8px;min-width:0}
+.g3{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr);gap:8px}
+@media (max-width:640px){.g3{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.g3>:first-child{grid-column:1/-1}}
+.opts{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:.86rem}
+.opts select{width:auto}
+.opts .grow{flex:1 1 220px}
+.check-i{display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap}
+.mini{font-size:.8rem;color:var(--muted);font-weight:500}
+.l-tools{display:flex;flex-direction:column;align-items:center;gap:1px;padding-top:20px}
+.icon-btn{appearance:none;border:0;background:transparent;width:30px;height:26px;border-radius:5px;cursor:pointer;color:var(--muted);font-size:.95rem;line-height:1;display:grid;place-items:center}
+.icon-btn:hover{background:var(--line);color:var(--ink)}
+.icon-btn.del{font-size:1.2rem}
+.icon-btn.del:hover{background:var(--bad-soft);color:var(--bad)}
+.icon-btn:disabled{opacity:.25;cursor:default;background:transparent}
+.line-tools{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;align-items:center}
+.line-tools select{width:auto;max-width:100%}
+.sticky-actions{position:sticky;bottom:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(6px);border-top:1px solid var(--line);padding-block:12px calc(12px + env(safe-area-inset-bottom,0px));display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px}
+@media (max-width:760px){.kbd-hint{display:none}}
+
+/* Document view */
+.doc-layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:20px;align-items:start}
+@media (max-width:1020px){.doc-layout{grid-template-columns:minmax(0,1fr)}.doc-layout .actions{order:-1}}
+.actions{display:flex;flex-direction:column;gap:14px;position:sticky;top:20px}
+@media (max-width:1020px){.actions{position:static}}
+.actions .btns{display:flex;flex-direction:column;gap:8px}
+.actions .btns .btn{justify-content:center}
+@media (max-width:1020px){.actions .btns{flex-direction:row;flex-wrap:wrap}}
+.facts{display:flex;flex-direction:column;gap:8px;font-size:.88rem;margin:0}
+.facts div{display:flex;justify-content:space-between;gap:10px}
+.facts dt{color:var(--muted)}
+.facts dd{margin:0;text-align:right;font-weight:500}
+.linkish{appearance:none;border:0;background:none;padding:0;color:var(--accent);cursor:pointer;font:inherit;text-decoration:underline;text-underline-offset:2px}
+
+/* Paper */
+.paper{background:var(--paper);color:var(--paper-ink);border-radius:3px;box-shadow:var(--shadow);border:1px solid var(--line);margin:0 auto;display:flex;flex-direction:column;gap:16px;font-size:11.5px;line-height:1.45;width:100%;max-width:560px;aspect-ratio:148/210;padding:30px 32px 18px}
+.paper.a4{max-width:794px;aspect-ratio:210/297;padding:46px 50px 24px;font-size:12.5px}
+.ed-preview .paper.a5{width:560px;max-width:none}
+.ed-preview .paper.a4{width:794px;max-width:none}
+.paper .p-head{display:flex;justify-content:space-between;gap:16px;padding-bottom:12px;border-bottom:2px solid var(--paper-accent)}
+.paper .p-doc{display:flex;flex-direction:column;gap:1px;color:var(--paper-muted);min-width:0}
+.paper .p-doc strong{color:var(--paper-ink);font-size:1.25em;font-family:var(--f-display)}
+.paper .p-doc .spe{color:var(--paper-accent);font-weight:600}
+.paper .p-ids{text-align:right;color:var(--paper-muted);font-size:.88em;display:flex;flex-direction:column;gap:1px;white-space:nowrap}
+.paper .p-ids b{font-family:var(--f-mono);font-weight:500;color:var(--paper-ink)}
+.paper .p-date{text-align:right;margin:0}
+.paper .p-pat{display:flex;flex-direction:column;gap:1px}
+.paper .p-pat strong{font-size:1.1em}
+.paper .p-pat span{color:var(--paper-muted)}
+.paper .p-title{text-align:center;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--paper-accent);font-size:.92em;margin:0}
+.paper .zone-h{border:1px solid var(--paper-ink);padding:5px 8px;font-size:.82em;font-weight:600;text-align:center;margin:4px 0 2px}
+.paper .rx{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.paper .rx li.md{display:grid;grid-template-columns:20px minmax(0,1fr);gap:2px}
+.paper .rx li.md .n{font-weight:700;color:var(--paper-accent)}
+.paper .rx li.md strong{font-size:1.06em}
+.paper .rx li.md .fl{font-style:italic}
+.paper .rx li.tx{white-space:pre-line;padding-left:20px;position:relative}
+.paper .rx li.tx::before{content:"–";position:absolute;left:4px;color:var(--paper-accent);font-weight:700}
+.paper .rx li.none{color:var(--paper-muted);padding-left:20px}
+.paper .p-renew{font-weight:700;margin:0}
+.paper .p-notes{margin:0;white-space:pre-line}
+.paper .p-sign{margin-top:auto;align-self:flex-end;width:min(220px,60%);min-height:70px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;color:var(--paper-muted);font-size:.86em}
+.paper .p-sign img{max-width:100%;max-height:64px;object-fit:contain}
+.paper .p-foot{border-top:1px solid var(--paper-line);padding-top:8px;color:var(--paper-muted);font-size:.82em;text-align:center;display:flex;flex-direction:column;gap:1px}
+.paper .p-foot b{color:var(--paper-ink)}
+.paper .placeholder{color:var(--bad)}
+.paper.serif{font-family:Georgia,"Times New Roman",Times,serif}
+.paper.serif .p-doc strong{font-family:inherit}
+.paper.centre .p-head{flex-direction:column;align-items:center;text-align:center;gap:6px}
+.paper.centre .p-doc{align-items:center}
+.paper.centre .p-ids{flex-direction:row;flex-wrap:wrap;justify-content:center;gap:2px 14px;text-align:center}
+@media (max-width:520px){.paper,.paper.a4{padding:20px 16px 14px;aspect-ratio:auto;min-height:0}.paper .p-head{flex-direction:column}.paper .p-ids{text-align:left}}
+
+/* Settings */
+.settings{display:flex;flex-direction:column;gap:16px}
+.settings .card h2{margin-bottom:4px}
+.settings .card>p{margin:0 0 16px;color:var(--muted);max-width:72ch}
+.img-row{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.img-prev{width:180px;height:70px;border:1px dashed var(--line-strong);border-radius:6px;display:grid;place-items:center;background:#FFFFFF;overflow:hidden;color:#566A65;font-size:.8rem}
+.img-prev img{max-width:100%;max-height:100%;object-fit:contain}
+.file-btn{position:relative;overflow:hidden}
+.file-btn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.swatches{display:flex;gap:14px;flex-wrap:wrap}
+.swatch,.seg{position:relative;cursor:pointer}
+.swatch{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:.75rem;color:var(--muted)}
+.swatch input,.seg input{position:absolute;opacity:0;width:1px;height:1px}
+.swatch i{display:block;width:34px;height:34px;border-radius:50%;background:var(--c);border:3px solid var(--surface);box-shadow:0 0 0 1px var(--line-strong)}
+.swatch input:checked+i{box-shadow:0 0 0 2px var(--ink)}
+.swatch input:checked~span{color:var(--ink);font-weight:600}
+.swatch input:focus-visible+i,.seg input:focus-visible+span{outline:2px solid var(--accent);outline-offset:3px}
+.segs{display:inline-flex;border:1px solid var(--line-strong);border-radius:6px;overflow:hidden;width:max-content}
+.seg span{display:block;padding:7px 16px;color:var(--muted)}
+.seg+.seg span{border-left:1px solid var(--line-strong)}
+.seg input:checked+span{background:var(--accent);color:var(--on-accent)}
+
+/* Praticité */
+.pick{position:relative;display:flex;gap:8px;align-items:stretch}
+.pick .pick-in{flex:1;min-width:0;position:relative}
+.pick-list{position:absolute;z-index:20;left:0;right:0;top:calc(100% + 4px);background:var(--surface);border:1px solid var(--line-strong);border-radius:8px;box-shadow:var(--shadow);padding:4px;display:flex;flex-direction:column;max-height:320px;overflow:auto}
+.pick-list button{all:unset;box-sizing:border-box;cursor:pointer;padding:8px 10px;border-radius:6px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.pick-list button:hover,.pick-list button:focus-visible{background:var(--accent-soft);outline:none}
+.pick-list .muted{font-size:.82rem}
+.picked{flex:1;min-width:0;display:flex;align-items:center;gap:4px 10px;flex-wrap:wrap;border:1px solid var(--line-strong);border-radius:6px;padding:5px 5px 5px 12px;background:var(--sunken)}
+.picked strong{font-weight:600}
+.picked .muted{font-size:.85rem}
+.picked .btn{margin-left:auto}
+.plist{list-style:none;margin:0;padding:0}
+.plist li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 4px;border-top:1px solid var(--line);flex-wrap:wrap}
+.plist li:first-child{border-top:0}
+.plist .who{display:flex;flex-direction:column;min-width:0;align-items:flex-start}
+.plist .who .muted{font-size:.82rem}
+.kbd{font-family:var(--f-mono);font-size:.72rem;border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:4px;padding:0 5px;color:var(--ink);background:var(--surface)}
+.side-keys{display:flex;flex-direction:column;gap:5px;font-size:.76rem;color:var(--muted);padding-inline:8px}
+@media (max-width:860px){.side-keys{display:none}}
+table.list td.acts{white-space:nowrap;text-align:right}
+table.list.compact{min-width:0}
+table.list.compact td{padding:9px 6px}
+.icon-btn svg{display:block}
+
+.ac{position:relative}
+.ac-list{position:absolute;z-index:25;left:0;top:calc(100% + 4px);width:min(600px,calc(100vw - 48px));background:var(--surface);border:1px solid var(--line-strong);border-radius:8px;box-shadow:var(--shadow);padding:4px;display:flex;flex-direction:column;max-height:380px;overflow:auto}
+.ac-list button{all:unset;box-sizing:border-box;cursor:pointer;padding:7px 10px;border-radius:6px;display:flex;flex-direction:column;gap:1px}
+.ac-list button:hover,.ac-list button:focus-visible{background:var(--accent-soft);outline:none}
+.ac-t{font-size:.92rem}
+.ac-t b{font-weight:600}
+.ac-s{font-size:.8rem;color:var(--muted)}
+.ac-s .tag{color:var(--accent);font-weight:600}
+.ac-note{font-size:.74rem;color:var(--muted);padding:6px 10px 4px;border-top:1px solid var(--line);margin-top:2px}
+.hint{margin:0;font-size:.8rem;color:var(--warn);background:var(--warn-soft);border-radius:6px;padding:6px 10px}
+
+/* Connexion */
+.shell.auth-mode{display:block}
+input[readonly]{background:var(--sunken);color:var(--muted);cursor:not-allowed}
+.auth{width:100%;max-width:460px;margin:5vh auto 0;display:flex;flex-direction:column;gap:18px}
+.auth-brand{display:flex;align-items:center;gap:12px;font-family:var(--f-display);font-weight:700;font-size:1.5rem}
+.auth form{display:flex;flex-direction:column;gap:14px}
+.auth .split{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.auth .legal{font-size:.78rem;color:var(--muted);margin:0}
+.auth .btn.primary{justify-content:center}
+.auth-tabs{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden;background:var(--surface)}
+.auth-tabs button{all:unset;text-align:center;padding:11px 8px;cursor:pointer;color:var(--muted);font-weight:600}
+.auth-tabs button+button{border-left:1px solid var(--line-strong)}
+.auth-tabs button[aria-selected="true"]{background:var(--accent);color:var(--on-accent)}
+.auth-tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-3px}
+.auth-intro{margin:0;color:var(--muted);max-width:56ch}
+
+/* Assistant de configuration */
+.ob{display:grid;grid-template-columns:minmax(0,1fr);gap:24px;width:100%;max-width:1240px;margin:3vh auto 0;align-items:start}
+@media (min-width:1100px){.ob{grid-template-columns:minmax(0,560px) minmax(0,1fr)}}
+.ob-main{display:flex;flex-direction:column;gap:16px;min-width:0}
+.ob-steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;counter-reset:s}
+.ob-steps li{counter-increment:s;font-size:.8rem;color:var(--muted);border-top:3px solid var(--line);padding-top:6px}
+.ob-steps li::before{content:counter(s) ". "}
+.ob-steps li.done{border-color:var(--accent);color:var(--ink)}
+.ob-steps li.cur{border-color:var(--accent);color:var(--accent);font-weight:600}
+.ob-card{display:flex;flex-direction:column;gap:16px}
+.ob-card h2{font-size:1.3rem}
+.ob-nav{display:flex;justify-content:space-between;align-items:center;gap:8px;border-top:1px solid var(--line);padding-top:14px}
+.ob-preview{background:var(--sunken);border:1px solid var(--line);border-radius:8px;padding:12px;position:sticky;top:16px;overflow:hidden;min-width:0}
+@media (max-width:1099px){.ob-preview{position:static}}
+.ob-preview .paper.a5{width:560px;max-width:none;margin:0}
+.ob-preview .paper.a4{width:794px;max-width:none;margin:0}
+.verified{display:flex;flex-direction:column;gap:3px;align-items:flex-start;padding:12px 14px;border-radius:8px;background:var(--accent-soft)}
+.verified strong{font-size:1.1rem}
+.choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.choice{position:relative;cursor:pointer;min-width:0}
+.choice input{position:absolute;opacity:0;width:1px;height:1px}
+.choice-b{display:flex;flex-direction:column;gap:6px;border:1px solid var(--line-strong);border-radius:8px;padding:12px;height:100%;background:var(--surface)}
+.choice input:checked+.choice-b{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.choice input:focus-visible+.choice-b{outline:2px solid var(--accent);outline-offset:2px}
+.choice small{color:var(--muted);font-size:.78rem}
+.choice .aa{font-size:1.7rem;line-height:1.1;color:var(--ink)}
+.mini-doc{height:50px;border:1px solid var(--line);border-radius:4px;background:#FFFFFF;display:flex;flex-direction:column;gap:4px;padding:7px 8px}
+.mini-doc i{display:block;height:4px;border-radius:2px;background:#C9D3D0;width:70%}
+.mini-doc i.b{height:6px;background:var(--accent);width:50%}
+.mini-doc i.r{height:2px;width:100%;background:var(--accent)}
+.mini-doc.c{align-items:center}
+.sum{margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 14px;font-size:.9rem}
+.sum dt{color:var(--muted)}
+.sum dd{margin:0;overflow-wrap:anywhere}
+
+/* Administration */
+.adm{width:100%;max-width:1280px;margin:2vh auto 0;display:flex;flex-direction:column;gap:20px}
+.adm-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.adm table.list td{vertical-align:top}
+.adm .who{font-weight:600}
+.adm .sub{font-size:.8rem;color:var(--muted)}
+
+/* Modal + toast */
+.modal{position:fixed;inset:0;z-index:50;background:var(--scrim);display:flex;align-items:center;justify-content:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.modal-card{background:var(--surface);border-radius:10px;box-shadow:var(--shadow);width:min(640px,100%);max-height:100%;overflow:auto;padding:22px;display:flex;flex-direction:column;gap:16px}
+.modal-card.narrow{width:min(440px,100%)}
+.modal-card.wide{width:min(860px,100%)}
+.modal-card p{margin:0;color:var(--muted)}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.toast{position:fixed;z-index:60;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;box-shadow:var(--shadow);max-width:calc(100% - 32px);font-weight:500}
+.toast.err{background:var(--bad);color:var(--surface)}
+.loading{padding:60px 0;text-align:center;color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){
+  .modal-card{animation:pop .16s ease-out}
+  @keyframes pop{from{transform:translateY(6px);opacity:.6}to{transform:none;opacity:1}}
+}
+</style>
+
+<div class="shell">
+  <aside class="side">
+    <div class="brand"><div class="brand-mark" aria-hidden="true"></div><span>Ordonnancier</span></div>
+    <nav class="nav" id="nav" aria-label="Sections"></nav>
+    <div class="side-foot" id="storeNote"></div>
+    <div class="side-keys" aria-label="Raccourcis clavier"><span><span class="kbd">N</span> nouvelle ordonnance</span><span><span class="kbd">/</span> rechercher</span></div>
+  </aside>
+  <main id="main"><div class="loading">Chargement de vos données…</div></main>
+</div>
+<div id="modal" class="modal" hidden></div>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<datalist id="formes"><option value="comprimé"><option value="comprimé pelliculé"><option value="comprimé effervescent"><option value="comprimé orodispersible"><option value="gélule"><option value="sachet"><option value="sirop"><option value="suspension buvable"><option value="solution buvable"><option value="ampoule buvable"><option value="collyre"><option value="pommade"><option value="crème"><option value="gel"><option value="suppositoire"><option value="solution injectable"><option value="spray nasal"><option value="patch"><option value="poudre pour inhalation"><option value="aérosol doseur"></datalist>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+"use strict";
+/* ---------- Constantes ---------- */
+const TYPES = { standard: "Ordonnance", bizone: "Ordonnance bizone (ALD)", biologie: "Examens de biologie", imagerie: "Examens d’imagerie", soins: "Soins et rééducation" };
+const TITLES = { standard: "", bizone: "", biologie: "Prescription d’examens de biologie médicale", imagerie: "Prescription d’examens d’imagerie médicale", soins: "Prescription de soins" };
+const NR_MOTIFS = { MTE: "MTE · marge thérapeutique étroite", EFG: "EFG · enfant de moins de 6 ans", CIF: "CIF · contre-indication formelle à un excipient" };
+const ZONE_ALD = "Prescriptions relatives au traitement de l’affection de longue durée reconnue (liste ou hors liste) — AFFECTION EXONÉRANTE";
+const ZONE_HORS = "Prescriptions SANS RAPPORT avec l’affection de longue durée — MALADIES INTERCURRENTES";
+const COLORS = [["#0E6B5C", "Sapin"], ["#2B47C8", "Encre"], ["#1F2A44", "Nuit"], ["#6B2A5E", "Prune"], ["#44546A", "Ardoise"], ["#8A2335", "Bordeaux"]];
+const TABS = ["accueil", "ordonnances", "patients", "favoris", "parametres"];
+const DEFAULT_SETTINGS = {
+  titre: "Dr", prenom: "", nom: "", specialite: "Médecine générale", qualifs: "",
+  adresse: "", cp: "", ville: "", tel: "", email: "",
+  rpps: "", am: "", finess: "", conventionnement: "Conventionné secteur 1", horaires: "Consultations sur rendez-vous",
+  urgence: "En cas d’urgence, composez le 15",
+  format: "A5", couleur: "#0E6B5C", signature: "", police: "sans", disposition: "gauche",
+};
+const accentOf = (P) => (/^#[0-9a-f]{6}$/i.test(P?.couleur || "") ? P.couleur.toUpperCase() : DEFAULT_SETTINGS.couleur);
+const hexRgb = (h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+
+/* ---------- Utilitaires ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const toNum = (v) => { const n = parseFloat(String(v ?? "").replace(",", ".")); return Number.isFinite(n) ? n : 0; };
+function isoLocal(d) { const x = new Date(d); x.setMinutes(x.getMinutes() - x.getTimezoneOffset()); return x.toISOString().slice(0, 10); }
+const todayISO = () => isoLocal(new Date());
+function fmtDate(iso) { if (!iso) return "—"; const [y, m, d] = iso.split("-"); return `${d}/${m}/${y}`; }
+const longFmt = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+const fmtLong = (iso) => (iso ? longFmt.format(new Date(iso + "T12:00:00")) : "");
+const num = (n) => new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 }).format(n || 0);
+const lines = (s) => String(s || "").split(/\n/).map((x) => x.trim()).filter(Boolean);
+const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const POSO = ["1 comprimé le matin", "1 comprimé matin et soir", "1 comprimé 3 fois par jour", "1 comprimé le soir au coucher", "1 gélule matin et soir", "1 sachet 3 fois par jour", "1 application matin et soir", "1 goutte dans chaque œil 3 fois par jour", "2 pulvérisations dans chaque narine matin et soir", "1 comprimé si douleur ou fièvre, à renouveler si besoin après 6 heures"];
+const DUREES = ["3 jours", "5 jours", "6 jours", "7 jours", "10 jours", "14 jours", "1 mois", "3 mois", "6 mois"];
+const QTES = ["1 boîte", "2 boîtes", "3 boîtes", "1 flacon", "1 tube", "QSP 1 mois", "QSP 3 mois"];
+function ageOf(iso, at) {
+  if (!iso) return "";
+  const b = new Date(iso + "T12:00:00"), a = new Date((at || todayISO()) + "T12:00:00");
+  let m = (a.getFullYear() - b.getFullYear()) * 12 + a.getMonth() - b.getMonth(); if (a.getDate() < b.getDate()) m--;
+  if (m < 0) return "";
+  return m < 36 ? `${m} mois` : `${Math.floor(m / 12)} ans`;
+}
+
+/* ---------- Stockage ---------- */
+const S = { settings: { ...DEFAULT_SETTINGS }, patients: [], meds: [], modeles: [], ordos: [], ready: false };
+const state = { view: "accueil", ordoId: null, patientId: null, draft: null, isNew: false, dirty: false, q: { ordonnances: "", patients: "", accueil: "" }, modal: false, onConfirm: null, imgDraft: {} };
+let backend = null;
+const capDownloads = window.claude?.use ? window.claude.use("downloads").catch(() => null) : Promise.resolve(null);
+const COLS = ["patients", "meds", "modeles", "ordos"];
+
+function localBackend() {
+  const KEY = "ordonnancier.v1";
+  const persist = () => { try { localStorage.setItem(KEY, JSON.stringify({ settings: S.settings, patients: S.patients, meds: S.meds, modeles: S.modeles, ordos: S.ordos })); } catch (e) {} };
+  return {
+    mode: "local",
+    async start() {
+      let m = null; try { m = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) {}
+      if (m) { S.settings = { ...DEFAULT_SETTINGS, ...(m.settings || {}) }; COLS.forEach((k) => (S[k] = m[k] || [])); }
+    },
+    async saveSettings() { persist(); }, async put() { persist(); }, async remove() { persist(); },
+  };
+}
+function dbBackend(db, uid) {
+  const root = db.doc(`data/users/${uid}/ordonnancier`);
+  const settingsRef = db.doc(`data/users/${uid}/ordo-settings`);
+  const cols = Object.fromEntries(COLS.map((k) => [k, root.collection(k)]));
+  const onErr = () => toast("La connexion à vos données a été interrompue. Rechargez la page.", true);
+  return {
+    mode: "db",
+    start() {
+      return new Promise((resolve) => {
+        let pending = COLS.length + 1;
+        const wrap = (fn) => { let first = true; return (snap) => { fn(snap); if (first) { first = false; if (--pending === 0) resolve(); } else remoteRender(); }; };
+        settingsRef.onSnapshot(wrap((snap) => { S.settings = { ...DEFAULT_SETTINGS, ...(snap.exists ? snap.data() : {}) }; }), onErr);
+        for (const k of COLS) cols[k].onSnapshot(wrap((snap) => { S[k] = snap.docs.map((d) => ({ ...d.data(), id: d.id })); }), onErr);
+      });
+    },
+    async saveSettings(s) { await settingsRef.set(clone(s)); },
+    async put(k, obj) { const { id, ...body } = clone(obj); await cols[k].doc(id).set(body); },
+    async remove(k, id) { await cols[k].doc(id).delete(); },
+  };
+}
+let sb = null;
+async function fetchAll(make) {
+  const out = [];
+  for (let from = 0; ; from += 1000) { const { data, error } = await make().range(from, from + 999); if (error) throw error; out.push(...data); if (data.length < 1000) return out; }
+}
+function supabaseBackend(uid) {
+  const now = () => new Date().toISOString();
+  return {
+    mode: "supabase",
+    async start() {
+      const [docs, reg] = await Promise.all([fetchAll(() => sb.from("documents").select("collection,id,data").order("id")), sb.from("reglages").select("data").maybeSingle()]);
+      if (reg.error) throw reg.error;
+      COLS.forEach((k) => (S[k] = []));
+      for (const r of docs) if (S[r.collection]) S[r.collection].push({ ...r.data, id: r.id });
+      S.settings = { ...DEFAULT_SETTINGS, ...(reg.data?.data || {}) };
+    },
+    async saveSettings(s) { const { error } = await sb.from("reglages").upsert({ user_id: uid, data: clone(s), updated_at: now() }); if (error) throw error; },
+    async put(k, obj) { const { id, ...body } = clone(obj); const { error } = await sb.from("documents").upsert({ user_id: uid, collection: k, id, data: body, updated_at: now() }); if (error) throw error; },
+    async remove(k, id) { const { error } = await sb.from("documents").delete().match({ collection: k, id }); if (error) throw error; },
+  };
+}
+function applyProfil() { if (S.profil) S.settings = { ...S.settings, nom: S.profil.nom, prenom: S.profil.prenom, rpps: S.profil.rpps }; }
+async function startSession(session) {
+  const pr = await sb.from("profils").select("rpps,nom,prenom").maybeSingle();
+  if (!pr.error && !pr.data) {
+    const adm = await sb.rpc("admin_etat");
+    if (adm.data?.admin) { S.admin = adm.data; backend = { mode: "supabase-admin" }; S.ready = true; return; }
+  }
+  if (pr.error || !pr.data) throw new Error("profil");
+  S.profil = pr.data;
+  backend = supabaseBackend(session.user.id);
+  await backend.start();
+  applyProfil();
+  S.ready = true;
+}
+async function initStore() {
+  const C = window.ORDO_CONFIG;
+  if (C?.supabaseUrl) {
+    if (/type=recovery/.test(location.hash)) state.recovery = true;
+    sb = window.supabase.createClient(C.supabaseUrl, C.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
+    sb.auth.onAuthStateChange((event) => { if (event === "PASSWORD_RECOVERY") { state.recovery = true; if (S.ready || $(".auth")) renderAuth("recovery"); } });
+    const { data } = await sb.auth.getSession();
+    if (/access_token|type=/.test(location.hash)) history.replaceState(null, "", location.pathname);
+    if (!data.session) return "auth";
+    await startSession(data.session);
+    return "ok";
+  }
+  let db = null, user = null, uid = null;
+  if (window.claude?.use) {
+    try { [db, user] = await Promise.all([window.claude.use("db"), window.claude.use("user")]); } catch (e) {}
+    if (db && user) { try { uid = await user.id(); } catch (e) {} }
+  }
+  backend = db && uid ? dbBackend(db, uid) : localBackend();
+  await Promise.race([backend.start(), new Promise((r) => setTimeout(r, 15000))]);
+  S.ready = true;
+  return "ok";
+}
+async function save(k, obj) {
+  obj.updatedAt = new Date().toISOString();
+  const arr = S[k], i = arr.findIndex((x) => x.id === obj.id);
+  if (i >= 0) arr[i] = obj; else arr.push(obj);
+  try { await backend.put(k, obj); } catch (e) { toast("L’enregistrement a échoué. Vérifiez votre connexion et réessayez.", true); throw e; }
+}
+async function remove(k, id) {
+  S[k] = S[k].filter((x) => x.id !== id);
+  try { await backend.remove(k, id); } catch (e) { toast("La suppression a échoué. Réessayez.", true); throw e; }
+}
+async function saveSettings(s) { if (S.profil) s = { ...s, nom: S.profil.nom, prenom: S.profil.prenom, rpps: S.profil.rpps }; S.settings = s; try { await backend.saveSettings(s); } catch (e) { toast("L’enregistrement a échoué. La signature est peut-être trop lourde.", true); throw e; } }
+function remoteRender() { if (!S.ready || state.modal || state.view === "edit" || state.view === "parametres") return; render(); }
+
+/* ---------- Métier ---------- */
+const getOrdo = (id) => S.ordos.find((o) => o.id === id);
+const getPatient = (id) => S.patients.find((p) => p.id === id);
+const prescOf = (o) => o.prescripteur || S.settings;
+function snapPatient(p) { if (!p) return null; const { nom, prenom, sexe, naissance } = p; return { nom, prenom, sexe, naissance }; }
+const civ = (p) => (p?.sexe === "F" ? "Mme" : p?.sexe === "M" ? "M." : "");
+function patientName(p, withCiv = true) { if (!p || !p.nom) return "Patient non renseigné"; return [withCiv ? civ(p) : "", p.prenom, String(p.nom).toUpperCase()].filter(Boolean).join(" "); }
+const listName = (p) => (p ? `${String(p.nom || "").toUpperCase()} ${p.prenom || ""}`.trim() : "—");
+function patientSub(p, at, poids) {
+  const parts = [];
+  if (p?.naissance) parts.push(`${p.sexe === "F" ? "Née" : p.sexe === "M" ? "Né" : "Né(e)"} le ${fmtDate(p.naissance)} (${ageOf(p.naissance, at)})`);
+  if (toNum(poids)) parts.push(`${num(toNum(poids))} kg`);
+  return parts.join(" · ");
+}
+function doctorName(P) { return [P.titre, P.prenom, P.nom ? String(P.nom).toUpperCase() : ""].filter(Boolean).join(" "); }
+const medTitle = (l) => [l.dci, l.dosage].filter(Boolean).join(" ") + (l.forme ? (l.dci || l.dosage ? ", " : "") + l.forme : "");
+function medLines(l) {
+  return [l.posologie,
+    [l.duree ? "Durée : " + l.duree : "", l.quantite ? "Quantité : " + l.quantite : ""].filter(Boolean).join(" · "),
+    [l.nr ? `Non substituable (${l.nrMotif || "MTE"})` : "", l.horsAmm ? "Prescription hors AMM" : ""].filter(Boolean).join(" · "),
+    l.commentaire].filter(Boolean);
+}
+const isEmptyLine = (l) => (l.kind === "texte" ? !String(l.texte || "").trim() : !String(l.dci || "").trim());
+const blankMed = () => ({ kind: "med", dci: "", dosage: "", forme: "", posologie: "", duree: "", quantite: "", nr: false, nrMotif: "MTE", horsAmm: false, commentaire: "", zone: "ald" });
+const blankText = () => ({ kind: "texte", texte: "", zone: "ald" });
+function newOrdo(patientId) {
+  const p = getPatient(patientId);
+  return { id: newId(), patientId: patientId || "", patient: snapPatient(p), date: todayISO(), lieu: S.settings.ville || "", type: p?.ald ? "bizone" : "standard", poids: p?.poids || "", renouvellement: 0, lignes: [blankMed()], mentions: "", createdAt: new Date().toISOString() };
+}
+function summary(o) {
+  const meds = (o.lignes || []).filter((l) => l.kind !== "texte").map((l) => l.dci).filter(Boolean);
+  const txt = (o.lignes || []).filter((l) => l.kind === "texte").map((l) => lines(l.texte)[0]).filter(Boolean);
+  return [...meds, ...txt].join(", ") || "Ordonnance vide";
+}
+const sortByDate = (a, b) => (b.date || "").localeCompare(a.date || "") || (b.createdAt || "").localeCompare(a.createdAt || "");
+const ordosOf = (pid) => S.ordos.filter((o) => o.patientId === pid).sort(sortByDate);
+function settingsProblems() { const s = S.settings, p = []; if (!s.nom) p.push("votre nom"); if (!/^\d{11}$/.test(String(s.rpps || "").replace(/\s/g, ""))) p.push("votre numéro RPPS (11 chiffres)"); return p; }
+
+/* ---------- Base des médicaments (ANSM) ---------- */
+let MEDS_DB = null, medsLoading = null, medsError = false;
+const unitFactor = (u) => (/^g$/i.test(u) ? 1000 : /^(µg|microgrammes?)$/i.test(u) ? 0.001 : 1);
+function loadMedsDb() {
+  if (MEDS_DB) return Promise.resolve(MEDS_DB);
+  if (!medsLoading) {
+    medsLoading = fetch("medicaments.json").then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); }).then((j) => {
+      MEDS_DB = { extrait: j.extrait, rows: j.rows.map((r, idx) => {
+        const m = /^([\d,.]+)\s*([a-zµ]+)/i.exec(r[1] || "");
+        return { idx, dci: r[0], dosage: r[1], forme: r[2], marques: r[3] ? r[3].split("|") : [], s: norm(`${r[0]} ${r[3].replace(/\|/g, " ")} ${r[1]} ${r[2]}`), d: norm(r[0]), b: norm(r[3]).split("|"), n: m ? toNum(m[1]) * unitFactor(m[2]) : 1e9 };
+      }) };
+      medsError = false; return MEDS_DB;
+    }).catch((e) => { medsLoading = null; medsError = true; throw e; });
+  }
+  return medsLoading;
+}
+const ORAL = /comprimé|gélule|capsule|sachet|granulés|lyophilisat/;
+const P = (text, opts = {}) => ({ text, ...opts });
+const POSOLOGIES = {
+  "paracetamol": P("1 g par prise si douleur ou fièvre, au moins 4 heures entre deux prises, sans dépasser 3 g par jour", { doses: ["500 mg", "1 g"] }),
+  "ibuprofene": P("200 à 400 mg par prise si douleur ou fièvre, toutes les 6 heures si besoin, au cours d’un repas, sans dépasser 1 200 mg par jour", { doses: ["200 mg", "400 mg"] }),
+  "amoxicilline": P("1 g 2 à 3 fois par jour selon l’indication", { doses: ["500 mg", "1 g"] }),
+  "amoxicilline + acide clavulanique": P("1 g / 125 mg 2 à 3 fois par jour, au début des repas", { doses: ["1 g / 125 mg"], formes: /comprimé|poudre pour suspension buvable|sachet/ }),
+  "omeprazole": P("20 mg une fois par jour, le matin avant le repas"),
+  "esomeprazole": P("20 à 40 mg une fois par jour"),
+  "pantoprazole": P("20 à 40 mg une fois par jour, avant le petit-déjeuner"),
+  "lansoprazole": P("15 à 30 mg une fois par jour, le matin à jeun"),
+  "metformine": P("500 mg à 1 g 2 à 3 fois par jour, au cours ou à la fin des repas, sans dépasser 3 g par jour"),
+  "amlodipine": P("5 à 10 mg une fois par jour"),
+  "ramipril": P("2,5 à 10 mg une fois par jour"),
+  "bisoprolol": P("1,25 à 10 mg une fois par jour, le matin"),
+  "nebivolol": P("5 mg une fois par jour"),
+  "atorvastatine": P("10 à 80 mg une fois par jour"),
+  "rosuvastatine": P("5 à 20 mg une fois par jour"),
+  "simvastatine": P("20 à 40 mg une fois par jour, le soir"),
+  "ezetimibe": P("10 mg une fois par jour"),
+  "levothyroxine": P("1 prise par jour le matin à jeun, 30 minutes avant le petit-déjeuner ; dose ajustée selon la TSH"),
+  "furosemide": P("20 à 40 mg le matin"),
+  "indapamide": P("1,5 mg (forme à libération prolongée) une fois par jour, le matin"),
+  "losartan": P("50 à 100 mg une fois par jour"),
+  "valsartan": P("80 à 160 mg une fois par jour"),
+  "irbesartan": P("150 à 300 mg une fois par jour"),
+  "candesartan cilexetil": P("8 à 16 mg une fois par jour"),
+  "gliclazide": P("30 à 120 mg (forme à libération modifiée) une fois par jour, au petit-déjeuner"),
+  "sitagliptine": P("100 mg une fois par jour"),
+  "empagliflozine": P("10 mg une fois par jour"),
+  "dapagliflozine": P("10 mg une fois par jour"),
+  "clopidogrel": P("75 mg une fois par jour"),
+  "allopurinol": P("100 à 300 mg une fois par jour, après un repas"),
+  "tamsulosine": P("0,4 mg une fois par jour, après le petit-déjeuner"),
+  "cetirizine": P("10 mg une fois par jour"),
+  "levocetirizine": P("5 mg une fois par jour"),
+  "desloratadine": P("5 mg une fois par jour"),
+  "loratadine": P("10 mg une fois par jour"),
+  "montelukast": P("10 mg une fois par jour, le soir", { doses: ["10 mg"] }),
+  "salbutamol": P("1 à 2 inhalations en cas de gêne respiratoire, à renouveler si besoin", { formes: /suspension pour inhalation|poudre pour inhalation/ }),
+  "phloroglucinol anhydre": P("160 mg (2 unités de 80 mg) par prise en cas de douleur, à renouveler si besoin, sans dépasser 480 mg par jour"),
+  "phloroglucinol hydrate": P("160 mg (2 unités de 80 mg) par prise en cas de douleur, à renouveler si besoin, sans dépasser 480 mg par jour"),
+  "phloroglucinol dihydrate": P("160 mg (2 unités de 80 mg) par prise en cas de douleur, à renouveler si besoin, sans dépasser 480 mg par jour"),
+  "loperamide": P("4 mg (2 gélules) puis 2 mg après chaque selle non moulée, sans dépasser 16 mg par jour", { doses: ["2 mg"] }),
+  "diosmectite": P("3 g (1 sachet) 3 fois par jour", { formes: /sachet|poudre/ }),
+  "macrogol 4000": P("10 à 20 g (1 à 2 sachets de 10 g) par jour, de préférence le matin", { doses: ["10 g"], formes: /poudre/ }),
+  "tramadol": P("50 à 100 mg toutes les 4 à 6 heures si besoin, sans dépasser 400 mg par jour", { formes: /^(?!.*libération)(comprimé|gélule|capsule)/ }),
+  "sertraline": P("50 mg une fois par jour"),
+  "escitalopram": P("10 mg une fois par jour"),
+  "paroxetine": P("20 mg une fois par jour, le matin"),
+  "fluoxetine": P("20 mg une fois par jour"),
+  "fosfomycine": P("3 g (1 sachet) en prise unique, à distance des repas", { doses: ["3 g"], formes: /granulés/ }),
+  "pivmecillinam": P("400 mg (2 comprimés de 200 mg) 2 fois par jour"),
+  "doxycycline": P("100 mg 1 à 2 fois par jour, au milieu d’un repas avec un grand verre d’eau, au moins 1 heure avant le coucher"),
+  "clarithromycine": P("250 à 500 mg 2 fois par jour", { formes: /^(?!.*libération)(comprimé|gélule)/ }),
+  "prednisolone": P("Dose selon l’indication, en une prise le matin au cours du repas"),
+  "prednisone": P("Dose selon l’indication, en une prise le matin au cours du repas"),
+  "trimebutine": P("100 à 200 mg 3 fois par jour"),
+  "sumatriptan": P("50 mg dès le début de la crise ; 2e prise possible après au moins 2 heures, sans dépasser 300 mg par jour", { formes: /comprimé/ }),
+};
+function posoFor(r) {
+  const e = POSOLOGIES[r.d]; if (!e) return "";
+  if (!(e.formes || ORAL).test(r.forme)) return "";
+  if (e.doses && !e.doses.includes(r.dosage)) return "";
+  return e.text;
+}
+const formRank = (f) => (/^comprimé|^gélule|^capsule/.test(f) ? 0 : /sachet|granulés|lyophilisat|buvable|sirop/.test(f) ? 1 : /injectable|perfusion/.test(f) ? 3 : 2);
+function searchMeds(q) {
+  const toks = norm(q).replace(/(\d)([a-zµ])/g, "$1 $2").split(/[\s,/]+/).filter(Boolean);
+  if (!toks.length) return { favs: [], rows: [] };
+  const favs = S.meds.filter((m) => { const s2 = norm(medTitle(m)); return toks.every((t) => s2.includes(t)); }).slice(0, 4);
+  const rows = [];
+  if (MEDS_DB) for (const r of MEDS_DB.rows) if (toks.every((t) => r.s.includes(t))) rows.push(r);
+  const t0 = toks[0], qd = (norm(q).replace(/\s/g, "").match(/\d[\d,.]*[a-zµ]*/) || [""])[0];
+  const doseHit = (r) => { if (!qd) return 0; const x = norm(r.dosage).replace(/\s/g, ""); return x.startsWith(qd) && !/^[\d,.]/.test(x.slice(qd.length)) ? -0.4 : 0; };
+  const score = (r) => (r.d.startsWith(t0) ? 0 : r.b.some((b) => b.startsWith(t0)) ? 1 : 2) + (r.d.includes("+") ? 0.5 : 0) + doseHit(r);
+  rows.sort((a, b) => score(a) - score(b) || formRank(a.forme) - formRank(b.forme) || a.d.length - b.d.length || a.d.localeCompare(b.d) || a.n - b.n || a.forme.localeCompare(b.forme));
+  return { favs, rows: rows.slice(0, 14) };
+}
+function renderAc(i) {
+  const box = document.getElementById(`ac-${i}`), inp = document.getElementById(`l${i}-dci`); if (!box || !inp) return;
+  const q = inp.value.trim();
+  if (q.length < 2) { box.hidden = true; return; }
+  if (!MEDS_DB && !medsError) loadMedsDb().then(() => { if (document.activeElement === inp) renderAc(i); }).catch(() => { if (document.activeElement === inp) renderAc(i); });
+  const { favs, rows } = searchMeds(q);
+  let html = favs.map((m) => `<button type="button" data-act="ac-pick" data-i="${i}" data-fav="${m.id}"><span class="ac-t"><b>${esc(medTitle(m))}</b></span><span class="ac-s"><span class="tag">★ Favori</span>${m.posologie ? " · " + esc(m.posologie) : ""}</span></button>`).join("");
+  html += rows.map((r) => { const po = posoFor(r); return `<button type="button" data-act="ac-pick" data-i="${i}" data-k="${r.idx}"><span class="ac-t"><b>${esc(r.dci)}</b> ${esc(r.dosage)}</span><span class="ac-s">${esc(r.forme)}${r.marques.length ? " · " + esc(r.marques.join(", ")) : ""}${po ? ' · <span class="tag">posologie usuelle</span>' : ""}</span></button>`; }).join("");
+  if (!MEDS_DB) html += `<div class="ac-note">${medsError ? "La base des médicaments n’a pas pu être chargée. Vous pouvez saisir le nom librement." : "Chargement de la base des médicaments…"}</div>`;
+  else if (!favs.length && !rows.length) html += `<div class="ac-note">Aucun médicament trouvé. Vous pouvez saisir le nom librement.</div>`;
+  else html += `<div class="ac-note">Base de données publique des médicaments (ANSM), extraite le ${fmtDate(MEDS_DB.extrait)}. Posologies usuelles adultes données à titre indicatif.</div>`;
+  box.innerHTML = html; box.hidden = false;
+}
+
+/* ---------- Brouillon automatique ---------- */
+const DRAFT_KEY = "ordonnancier.encours";
+let autosaveTimer;
+function autosave() { clearTimeout(autosaveTimer); autosaveTimer = setTimeout(() => { if (state.view !== "edit" || !state.draft || !state.dirty) return; try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ draft: state.draft, isNew: state.isNew, at: Date.now() })); } catch (e) {} }, 500); }
+function clearAutosave() { clearTimeout(autosaveTimer); try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} }
+function pendingDraft() { try { const x = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); return x && x.draft ? x : null; } catch (e) { return null; } }
+function resumeBanner() {
+  const x = pendingDraft(); if (!x) return "";
+  const p = getPatient(x.draft.patientId) || x.draft.patient, mins = Math.max(1, Math.round((Date.now() - x.at) / 60000));
+  const when = mins < 60 ? `il y a ${mins} min` : `le ${new Date(x.at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}`;
+  return `<div class="banner"><p><strong>Ordonnance non enregistrée</strong> pour ${esc(p?.nom ? patientName(p) : "un patient non choisi")}, modifiée ${when}.</p><div class="row"><button type="button" class="btn ghost" data-act="draft-drop">Abandonner</button><button type="button" class="btn primary" data-act="draft-resume">Reprendre</button></div></div>`;
+}
+
+/* ---------- Rendu : shell ---------- */
+function render() {
+  const navKey = state.view === "edit" || state.view === "ordo" ? "ordonnances" : state.view === "patient" ? "patients" : state.view;
+  const items = [["accueil", "Accueil"], ["ordonnances", "Ordonnances"], ["patients", "Patients"], ["favoris", "Favoris et modèles"], ["parametres", "Paramètres"]];
+  $("#nav").innerHTML = items.map(([k, l]) => `<button type="button" data-act="nav" data-view="${k}" ${navKey === k ? 'aria-current="page"' : ""}>${l}</button>`).join("");
+  $("#storeNote").innerHTML = backend?.mode === "supabase"
+    ? `<span class="dot"></span><span>Connecté : ${esc(doctorName(S.settings))}<br>RPPS vérifié · <button type="button" class="linkish" data-act="logout">Se déconnecter</button></span>`
+    : backend?.mode === "db"
+    ? `<span class="dot"></span><span>Enregistré dans votre compte Claude. Vous seul voyez ces données.</span>`
+    : `<span class="dot local"></span><span>Enregistré dans ce navigateur uniquement. Pensez à exporter une sauvegarde.</span>`;
+  const v = state.view;
+  const html = v === "accueil" ? viewHome() : v === "ordonnances" ? viewOrdos() : v === "patients" ? viewPatients() : v === "patient" ? viewPatient()
+    : v === "favoris" ? viewFavoris() : v === "parametres" ? viewSettings() : v === "edit" ? viewEditor() : v === "ordo" ? viewOrdo() : "";
+  $("#main").innerHTML = `<div class="wrap ${v === "edit" ? "wide" : ""}">${v === "edit" ? "" : resumeBanner()}${html}</div>`;
+  if (v === "edit") { fitPreview(); loadMedsDb().catch(() => {}); }
+}
+function go(view, extra = {}) { if (state.view === "edit" && view !== "edit") clearAutosave(); Object.assign(state, { view }, extra); if (view !== "edit") state.draft = null; else state.dirty = false; render(); window.scrollTo(0, 0); }
+function setupBanner() {
+  const p = settingsProblems(); if (!p.length) return "";
+  return `<div class="banner"><p><strong>Votre en-tête de prescripteur est incomplet.</strong> Renseignez ${p.join(" et ")} pour pouvoir télécharger vos ordonnances.</p><button type="button" class="btn" data-act="nav" data-view="parametres">Compléter mon en-tête</button></div>`;
+}
+function ordoItem(o, showPatient = true) {
+  return `<li><button type="button" data-act="open" data-id="${o.id}"><span class="who">${showPatient ? esc(patientName(o.patient || getPatient(o.patientId))) : esc(TYPES[o.type] || "Ordonnance")}</span><span class="meta">${fmtDate(o.date)}</span><span class="sub">${esc(summary(o))}</span><span class="meta">${o.renouvellement ? `AR ×${o.renouvellement}` : ""}</span></button></li>`;
+}
+
+/* ---------- Accueil ---------- */
+const byName = (a, b) => listName(a).localeCompare(listName(b), "fr");
+function matchPatients(q, limit) {
+  const t = norm(q.trim());
+  const ps = S.patients.filter((p) => !t || norm(`${p.nom} ${p.prenom}`).includes(t) || norm(`${p.prenom} ${p.nom}`).includes(t)).sort(byName);
+  return limit ? ps.slice(0, limit) : ps;
+}
+function patientResults(q) {
+  const ps = matchPatients(q, 7);
+  if (!ps.length) return q.trim() ? `<p class="empty-note">Aucun patient trouvé. <button type="button" class="linkish" data-act="patient-new" data-prefill="${esc(q.trim())}">Créer « ${esc(q.trim())} »</button></p>` : `<p class="empty-note">Aucun patient enregistré.</p>`;
+  return `<ul class="mini-list">${ps.map((p) => `<li><button type="button" data-act="open-patient" data-id="${p.id}"><span class="who">${esc(listName(p))}</span><span class="meta">${p.naissance ? esc(ageOf(p.naissance)) : ""}</span><span class="sub">${p.naissance ? "Né(e) le " + fmtDate(p.naissance) : ""}${p.allergies ? " · allergies connues" : ""}</span><span class="meta">${p.ald ? "ALD" : ""}</span></button></li>`).join("")}</ul>`;
+}
+function viewHome() {
+  const head = `<div class="page-head"><div class="title"><span class="eyebrow">${esc(fmtLong(todayISO()))}</span><h1>Accueil</h1></div>
+    <div class="row"><button type="button" class="btn" data-act="patient-new">Nouveau patient</button><button type="button" class="btn primary" data-act="new-ordo">Nouvelle ordonnance</button></div></div>`;
+  if (!S.ordos.length && !S.patients.length) {
+    return head + setupBanner() + `<section class="empty">
+      <div><h2>Vos ordonnances, propres et lisibles</h2><p>Renseignez votre en-tête une fois, enregistrez vos patients, vos médicaments favoris et vos modèles, puis rédigez et téléchargez une ordonnance en PDF en quelques secondes.</p>
+      <div class="row"><button type="button" class="btn primary" data-act="nav" data-view="parametres">Créer mon en-tête</button><button type="button" class="btn" data-act="load-example">Charger un exemple</button></div></div>
+      <ol><li><strong>Paramètres</strong> : identité, RPPS, n° AM, cabinet, signature.</li><li><strong>Favoris et modèles</strong> : vos prescriptions habituelles en un clic.</li><li><strong>Ordonnance</strong> : simple, bizone ALD, biologie, imagerie ou soins, avec renouvellement.</li></ol>
+    </section>`;
+  }
+  const t = todayISO(), month = t.slice(0, 7);
+  const kpi = (label, value) => `<div class="kpi"><span class="eyebrow">${label}</span><span class="v">${value}</span></div>`;
+  const recent = [...S.ordos].sort(sortByDate).slice(0, 7);
+  const mods = [...S.modeles].sort((a, b) => (a.nom || "").localeCompare(b.nom || "", "fr"));
+  return head + setupBanner() + `
+  <section class="kpis">${kpi("Aujourd’hui", S.ordos.filter((o) => o.date === t).length)}${kpi("Ce mois-ci", S.ordos.filter((o) => (o.date || "").startsWith(month)).length)}${kpi("Patients", S.patients.length)}${kpi("Modèles", S.modeles.length)}</section>
+  <section class="dash-cols">
+    <div class="card"><div class="card-head"><h2>Trouver un patient</h2><button type="button" class="btn ghost sm" data-act="nav" data-view="patients">Tous les patients</button></div>
+      <input type="search" id="q-accueil" data-search="accueil" placeholder="Nom ou prénom…" value="${esc(state.q.accueil)}" aria-label="Rechercher un patient" style="margin-bottom:8px">
+      <div id="home-results">${patientResults(state.q.accueil)}</div></div>
+    ${recentPatientsCard()}
+    <div class="card"><div class="card-head"><h2>Dernières ordonnances</h2><button type="button" class="btn ghost sm" data-act="nav" data-view="ordonnances">Tout voir</button></div>
+      ${recent.length ? `<ul class="mini-list">${recent.map((o) => ordoItem(o)).join("")}</ul>` : `<p class="empty-note">Aucune ordonnance pour l’instant.</p>`}</div>
+    <div class="card"><div class="card-head"><h2>Partir d’un modèle</h2><button type="button" class="btn ghost sm" data-act="nav" data-view="favoris">Gérer</button></div>
+      ${mods.length ? `<ul class="mini-list">${mods.slice(0, 7).map((m) => `<li><button type="button" data-act="use-modele" data-id="${m.id}"><span class="who">${esc(m.nom)}</span><span class="meta">${esc(TYPES[m.type] || "")}</span><span class="sub">${esc(summary(m))}</span><span></span></button></li>`).join("")}</ul>` : `<p class="empty-note">Depuis une ordonnance, choisissez « Enregistrer comme modèle » pour la réutiliser ici.</p>`}</div>
+  </section>`;
+}
+
+function recentPatientsCard() {
+  const seen = new Set(), rp = [];
+  for (const o of [...S.ordos].sort(sortByDate)) { const p = getPatient(o.patientId); if (p && !seen.has(p.id)) { seen.add(p.id); rp.push([p, o]); } if (rp.length >= 6) break; }
+  return `<div class="card"><div class="card-head"><h2>Patients récents</h2></div>${rp.length ? `<ul class="plist">${rp.map(([p, o]) => `<li><div class="who"><button type="button" class="linkish" data-act="open-patient" data-id="${p.id}">${esc(listName(p))}</button><span class="muted">Dernière ordonnance le ${fmtDate(o.date)}</span></div><div class="row"><button type="button" class="btn sm" data-act="renew" data-id="${o.id}">Renouveler</button><button type="button" class="btn sm soft" data-act="new-ordo" data-patient="${p.id}">Nouvelle</button></div></li>`).join("")}</ul>` : `<p class="empty-note">Les patients pour qui vous rédigez des ordonnances apparaîtront ici.</p>`}</div>`;
+}
+
+/* ---------- Ordonnances ---------- */
+function ordoRows() {
+  const t = norm(state.q.ordonnances.trim());
+  const os = [...S.ordos].filter((o) => !t || norm(patientName(o.patient || getPatient(o.patientId)) + " " + summary(o)).includes(t)).sort(sortByDate);
+  if (!os.length) return `<tr><td colspan="6" class="list-empty">${S.ordos.length ? "Aucune ordonnance ne correspond." : "Aucune ordonnance pour l’instant."}</td></tr>`;
+  return os.map((o) => `<tr data-act="open" data-id="${o.id}" tabindex="0"><td class="mono">${fmtDate(o.date)}</td><td><strong>${esc(listName(o.patient || getPatient(o.patientId)))}</strong></td><td>${esc(TYPES[o.type] || "Ordonnance")}</td><td class="clip muted">${esc(summary(o))}</td><td>${o.renouvellement ? `<span class="pill">AR ×${o.renouvellement}</span>` : ""}</td><td class="acts"><button type="button" class="btn sm" data-act="pdf" data-id="${o.id}">PDF</button> <button type="button" class="btn sm" data-act="renew" data-id="${o.id}">Renouveler</button></td></tr>`).join("");
+}
+function viewOrdos() {
+  return `<div class="page-head"><div class="title"><span class="eyebrow">${S.ordos.length} ordonnance${S.ordos.length > 1 ? "s" : ""}</span><h1>Ordonnances</h1></div><button type="button" class="btn primary" data-act="new-ordo">Nouvelle ordonnance</button></div>
+  ${setupBanner()}
+  <div class="toolbar"><input type="search" class="search" id="q-ordonnances" data-search="ordonnances" placeholder="Patient, médicament, examen…" value="${esc(state.q.ordonnances)}" aria-label="Rechercher une ordonnance"></div>
+  <div class="tablewrap"><table class="list"><thead><tr><th>Date</th><th>Patient</th><th>Type</th><th>Contenu</th><th>Renouv.</th><th></th></tr></thead><tbody id="rows">${ordoRows()}</tbody></table></div>`;
+}
+
+/* ---------- Patients ---------- */
+function patientRows() {
+  const q = state.q.patients.trim(), ps = matchPatients(q);
+  if (!ps.length) return `<tr><td colspan="5" class="list-empty">${S.patients.length ? `Aucun patient ne correspond. <button type="button" class="linkish" data-act="patient-new" data-prefill="${esc(q)}">Créer « ${esc(q)} »</button>` : "Aucun patient. Ajoutez votre premier patient."}</td></tr>`;
+  return ps.map((p) => { const last = ordosOf(p.id)[0]; return `<tr data-act="open-patient" data-id="${p.id}" tabindex="0"><td><strong>${esc(listName(p))}</strong></td><td>${p.naissance ? `${fmtDate(p.naissance)} <span class="muted">(${esc(ageOf(p.naissance))})</span>` : "—"}</td><td>${[p.ald ? '<span class="pill">ALD</span>' : "", p.allergies ? '<span class="pill bad">Allergies</span>' : ""].join(" ")}</td><td class="mono">${last ? fmtDate(last.date) : "—"}</td><td class="r"><button type="button" class="btn sm" data-act="new-ordo" data-patient="${p.id}">Ordonnance</button></td></tr>`; }).join("");
+}
+function viewPatients() {
+  return `<div class="page-head"><div class="title"><span class="eyebrow">${S.patients.length} patient${S.patients.length > 1 ? "s" : ""}</span><h1>Patients</h1></div><button type="button" class="btn primary" data-act="patient-new">Nouveau patient</button></div>
+  <div class="toolbar"><input type="search" class="search" id="q-patients" data-search="patients" placeholder="Nom ou prénom…" value="${esc(state.q.patients)}" aria-label="Rechercher un patient"></div>
+  <div class="tablewrap"><table class="list"><thead><tr><th>Patient</th><th>Naissance</th><th>Repères</th><th>Dernière ordonnance</th><th></th></tr></thead><tbody id="rows">${patientRows()}</tbody></table></div>`;
+}
+function viewPatient() {
+  const p = getPatient(state.patientId);
+  if (!p) return `<p class="muted">Ce patient n’existe plus.</p><div><button type="button" class="btn" data-act="nav" data-view="patients">Retour aux patients</button></div>`;
+  const os = ordosOf(p.id);
+  const facts = [["Naissance", p.naissance ? `${fmtDate(p.naissance)} (${esc(ageOf(p.naissance))})` : "—"], ["Sexe", p.sexe === "F" ? "Féminin" : p.sexe === "M" ? "Masculin" : "—"], ["Poids", toNum(p.poids) ? num(toNum(p.poids)) + " kg" : "—"], ["ALD", p.ald ? esc(p.aldLibelle || "Oui") : "Non"], ["Téléphone", esc(p.tel || "—")]];
+  return `<div class="page-head"><div class="title"><button type="button" class="linkish" data-act="nav" data-view="patients">← Patients</button><h1>${esc(patientName(p))}</h1></div>
+    <div class="row"><button type="button" class="btn" data-act="patient-edit" data-id="${p.id}">Modifier la fiche</button>${os.length ? `<button type="button" class="btn" data-act="renew" data-id="${os[0].id}">Renouveler la dernière</button>` : ""}<button type="button" class="btn primary" data-act="new-ordo" data-patient="${p.id}">Nouvelle ordonnance</button></div></div>
+  ${p.allergies ? `<div class="banner bad"><p><strong>Allergies et intolérances :</strong> ${esc(p.allergies)}</p></div>` : ""}
+  <div class="dash-cols">
+    <div class="card"><div class="card-head"><h2>Fiche</h2></div><dl class="facts">${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("")}</dl>${p.notes ? `<p class="note" style="margin-top:14px;white-space:pre-line">${esc(p.notes)}</p>` : ""}</div>
+    <div class="card"><div class="card-head"><h2>Ordonnances</h2><span class="muted">${os.length}</span></div>${os.length ? `<div style="overflow-x:auto"><table class="list compact"><tbody>${os.map((o) => `<tr data-act="open" data-id="${o.id}" tabindex="0"><td class="mono">${fmtDate(o.date)}</td><td class="clip muted" style="max-width:220px">${esc(summary(o))}</td><td class="acts"><button type="button" class="btn sm" data-act="pdf" data-id="${o.id}">PDF</button> <button type="button" class="btn sm" data-act="renew" data-id="${o.id}">Renouveler</button></td></tr>`).join("")}</tbody></table></div>` : `<p class="empty-note">Aucune ordonnance pour ce patient.</p>`}</div>
+  </div>`;
+}
+function prefillPatient(text) { const w = String(text || "").trim().split(/\s+/).filter(Boolean); return w.length ? { nom: w[0], prenom: w.slice(1).join(" ") } : {}; }
+function patientForm(p = {}, inline = false) {
+  const f = (name, label, attrs = "", cls = "") => `<label class="field ${cls}"><span>${label}</span><input id="pf-${name}" name="${name}" value="${esc(p[name] ?? "")}" ${attrs}></label>`;
+  return `<form data-form="patient" data-id="${p.id || ""}" data-inline="${inline ? 1 : ""}"><div style="display:flex;flex-direction:column;gap:16px">
+    <h2>${p.id ? "Modifier la fiche patient" : "Nouveau patient"}</h2>
+    <div class="grid">
+      ${f("nom", "Nom *", "required")}${f("prenom", "Prénom *", "required")}
+      <label class="field"><span>Sexe</span><select id="pf-sexe" name="sexe"><option value="">—</option><option value="F" ${p.sexe === "F" ? "selected" : ""}>Féminin</option><option value="M" ${p.sexe === "M" ? "selected" : ""}>Masculin</option></select></label>
+      ${f("naissance", "Date de naissance *", 'type="date" required')}${f("poids", "Poids (kg)", 'type="number" step="0.1" min="0" inputmode="decimal"')}${f("tel", "Téléphone", 'type="tel"')}
+      <label class="check span-all"><input type="checkbox" id="pf-ald" name="ald" ${p.ald ? "checked" : ""}><span>Affection de longue durée (ALD) : les nouvelles ordonnances seront bizones par défaut.</span></label>
+      ${f("aldLibelle", "Libellé de l’ALD", 'placeholder="ex. Diabète de type 2"', "span-all")}
+      <label class="field span-all"><span>Allergies et intolérances</span><textarea id="pf-allergies" name="allergies" rows="2" placeholder="ex. Pénicillines (urticaire)">${esc(p.allergies || "")}</textarea><small>Affichées en alerte pendant la rédaction, jamais imprimées.</small></label>
+      <label class="field span-all"><span>Notes</span><textarea id="pf-notes" name="notes" rows="2">${esc(p.notes || "")}</textarea></label>
+    </div>
+    <div class="modal-actions">${p.id ? `<button type="button" class="btn danger" data-act="patient-del" data-id="${p.id}" style="margin-right:auto">Supprimer</button>` : ""}<button type="button" class="btn ghost" data-act="modal-close">Annuler</button><button type="submit" class="btn primary">Enregistrer</button></div>
+  </div></form>`;
+}
+
+/* ---------- Favoris et modèles ---------- */
+function viewFavoris() {
+  const ms = [...S.meds].sort((a, b) => medTitle(a).localeCompare(medTitle(b), "fr"));
+  const mods = [...S.modeles].sort((a, b) => (a.nom || "").localeCompare(b.nom || "", "fr"));
+  return `<div class="page-head"><div class="title"><span class="eyebrow">Vos prescriptions habituelles</span><h1>Favoris et modèles</h1></div><button type="button" class="btn primary" data-act="med-new">Nouveau médicament favori</button></div>
+  <section class="card"><div class="card-head"><h2>Médicaments favoris</h2><span class="muted">${ms.length}</span></div>
+    <p class="note" style="margin-bottom:12px">Ajoutez-les à une ordonnance depuis la liste « Depuis mes favoris », ou avec l’étoile ☆ d’une ligne pendant la rédaction.</p>
+    <div class="tablewrap"><table class="list"><thead><tr><th>Médicament</th><th>Posologie habituelle</th><th>Durée</th><th>Quantité</th></tr></thead><tbody>
+    ${ms.length ? ms.map((m) => `<tr data-act="med-edit" data-id="${m.id}" tabindex="0"><td><strong>${esc(medTitle(m))}</strong></td><td class="clip">${esc(m.posologie || "")}</td><td>${esc(m.duree || "")}</td><td>${esc(m.quantite || "")}</td></tr>`).join("") : `<tr><td colspan="4" class="list-empty">Aucun médicament favori.</td></tr>`}
+    </tbody></table></div></section>
+  <section class="card"><div class="card-head"><h2>Modèles d’ordonnance</h2><span class="muted">${mods.length}</span></div>
+    <p class="note" style="margin-bottom:12px">Pour créer un modèle, ouvrez une ordonnance et choisissez « Enregistrer comme modèle ».</p>
+    <div class="tablewrap"><table class="list"><thead><tr><th>Nom</th><th>Type</th><th>Contenu</th><th></th></tr></thead><tbody>
+    ${mods.length ? mods.map((m) => `<tr data-act="modele-edit" data-id="${m.id}" tabindex="0"><td><strong>${esc(m.nom)}</strong></td><td>${esc(TYPES[m.type] || "")}</td><td class="clip muted">${esc(summary(m))}</td><td class="r"><button type="button" class="btn sm" data-act="use-modele" data-id="${m.id}">Utiliser</button></td></tr>`).join("") : `<tr><td colspan="4" class="list-empty">Aucun modèle.</td></tr>`}
+    </tbody></table></div></section>`;
+}
+function medForm(m = {}) {
+  const f = (name, label, attrs = "", cls = "") => `<label class="field ${cls}"><span>${label}</span><input id="mf-${name}" name="${name}" value="${esc(m[name] ?? "")}" ${attrs}></label>`;
+  return `<form data-form="med" data-id="${m.id || ""}"><div style="display:flex;flex-direction:column;gap:16px">
+    <h2>${m.id ? "Modifier le favori" : "Nouveau médicament favori"}</h2>
+    <div class="grid">${f("dci", "Médicament (DCI) *", 'required placeholder="ex. Paracétamol"', "span2")}${f("dosage", "Dosage", 'placeholder="1 g"')}${f("forme", "Forme", 'list="formes" placeholder="comprimé"')}
+      ${f("posologie", "Posologie habituelle", 'placeholder="1 comprimé jusqu’à 3 fois par jour"', "span-all")}${f("duree", "Durée", 'placeholder="5 jours"')}${f("quantite", "Quantité", 'placeholder="1 boîte"')}</div>
+    <div class="modal-actions">${m.id ? `<button type="button" class="btn danger" data-act="med-del" data-id="${m.id}" style="margin-right:auto">Supprimer</button>` : ""}<button type="button" class="btn ghost" data-act="modal-close">Annuler</button><button type="submit" class="btn primary">Enregistrer</button></div>
+  </div></form>`;
+}
+
+/* ---------- Feuille (aperçu) ---------- */
+function paperHTML(o) {
+  const P = prescOf(o), p = o.patient || snapPatient(getPatient(o.patientId)) || {}, a4 = P.format === "A4";
+  const groups = o.type === "bizone" ? [["ald", ZONE_ALD], ["hors", ZONE_HORS]] : [[null, null]];
+  let n = 0;
+  const li = (l) => l.kind === "texte"
+    ? `<li class="tx">${esc(l.texte) || '<span class="placeholder">Texte vide</span>'}</li>`
+    : `<li class="md"><span class="n">${++n}.</span><div><strong>${esc(medTitle(l)) || '<span class="placeholder">Médicament</span>'}</strong>${medLines(l).map((x, i, arr) => `<div class="${/^Non substituable|^Prescription hors AMM/.test(x) ? "fl" : ""}">${esc(x)}</div>`).join("")}</div></li>`;
+  const body = groups.map(([z, label]) => { const ls = (o.lignes || []).filter((l) => !z || (l.zone || "ald") === z); return `${label ? `<div class="zone-h">${esc(label)}</div>` : ""}<ol class="rx">${ls.map(li).join("") || (label ? '<li class="none">Néant</li>' : "")}</ol>`; }).join("");
+  const ids = [P.rpps ? `RPPS <b>${esc(P.rpps)}</b>` : `<span class="placeholder">RPPS à renseigner</span>`, P.am ? `N° AM <b>${esc(P.am)}</b>` : "", P.finess ? `FINESS <b>${esc(P.finess)}</b>` : ""].filter(Boolean);
+  const foot = [P.urgence ? `<b>${esc(P.urgence)}</b>` : "", [P.conventionnement, P.horaires].filter(Boolean).map(esc).join(" · ")].filter(Boolean);
+  return `<article class="paper ${a4 ? "a4" : "a5"} ${P.police === "serif" ? "serif" : ""} ${P.disposition === "centre" ? "centre" : ""}" style="--paper-accent:${accentOf(P)}">
+    <header class="p-head">
+      <div class="p-doc"><strong>${P.nom ? esc(doctorName(P)) : '<span class="placeholder">Votre nom (Paramètres)</span>'}</strong>${P.specialite ? `<span class="spe">${esc(P.specialite)}</span>` : ""}${lines(P.qualifs).map((x) => `<span>${esc(x)}</span>`).join("")}
+        ${lines(P.adresse).map((x) => `<span>${esc(x)}</span>`).join("")}${P.cp || P.ville ? `<span>${esc([P.cp, P.ville].filter(Boolean).join(" "))}</span>` : ""}${P.tel ? `<span>Tél. ${esc(P.tel)}</span>` : ""}${P.email ? `<span>${esc(P.email)}</span>` : ""}</div>
+      <div class="p-ids">${ids.map((x) => `<span>${x}</span>`).join("")}</div>
+    </header>
+    <p class="p-date">${o.lieu ? "À " + esc(o.lieu) + ", le " : "Le "}${esc(fmtLong(o.date))}</p>
+    <div class="p-pat"><strong>${p.nom ? esc(patientName(p)) : '<span class="placeholder">Patient</span>'}</strong>${patientSub(p, o.date, o.poids) ? `<span>${esc(patientSub(p, o.date, o.poids))}</span>` : ""}</div>
+    ${TITLES[o.type] ? `<p class="p-title">${esc(TITLES[o.type])}</p>` : ""}
+    ${body}
+    ${toNum(o.renouvellement) ? `<p class="p-renew">À renouveler ${toNum(o.renouvellement)} fois.</p>` : ""}
+    ${o.mentions ? `<p class="p-notes">${esc(o.mentions)}</p>` : ""}
+    <div class="p-sign">${P.signature ? `<img src="${esc(P.signature)}" alt="Signature">` : "<span>Signature</span>"}</div>
+    <footer class="p-foot">${foot.map((x) => `<span>${x}</span>`).join("") || "&nbsp;"}</footer>
+  </article>`;
+}
+function viewOrdo() {
+  const o = getOrdo(state.ordoId);
+  if (!o) return `<p class="muted">Cette ordonnance n’existe plus.</p><div><button type="button" class="btn" data-act="nav" data-view="ordonnances">Retour aux ordonnances</button></div>`;
+  const p = getPatient(o.patientId);
+  const btn = (act, label, cls = "") => `<button type="button" class="btn ${cls}" data-act="${act}" data-id="${o.id}">${label}</button>`;
+  const facts = [["Patient", p ? `<button type="button" class="linkish" data-act="open-patient" data-id="${p.id}">${esc(listName(p))}</button>` : esc(listName(o.patient))], ["Date", fmtDate(o.date)], ["Type", esc(TYPES[o.type] || "Ordonnance")], ["Renouvellement", toNum(o.renouvellement) ? `${toNum(o.renouvellement)} fois` : "Non"]];
+  return `<div class="page-head"><div class="title"><button type="button" class="linkish" data-act="nav" data-view="ordonnances">← Ordonnances</button><h1>${esc(TYPES[o.type] || "Ordonnance")} du ${fmtDate(o.date)}</h1></div></div>
+  ${setupBanner()}
+  ${p?.allergies ? `<div class="banner bad"><p><strong>Allergies :</strong> ${esc(p.allergies)}</p></div>` : ""}
+  <div class="doc-layout"><div style="min-width:0">${paperHTML(o)}</div>
+    <aside class="actions"><div class="card"><dl class="facts">${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("")}</dl></div>
+      <div class="btns">${btn("pdf", "Télécharger le PDF", "primary")}${btn("edit-ordo", "Modifier")}${btn("renew", "Renouveler (date du jour)", "soft")}${btn("save-modele", "Enregistrer comme modèle")}${btn("del-ordo", "Supprimer", "danger")}</div>
+      <p class="note">Vérifiez l’ordonnance avant de la remettre au patient. Ce site ne contrôle ni les interactions, ni les contre-indications, ni les posologies.</p></aside></div>`;
+}
+
+/* ---------- Éditeur ---------- */
+function edLineHTML(l, i, n, bizone, num) {
+  const id = (k) => `l${i}-${k}`;
+  const zone = bizone ? `<label class="check-i"><span class="mini">Zone</span><select id="${id("zone")}" data-l="zone"><option value="ald" ${l.zone !== "hors" ? "selected" : ""}>ALD</option><option value="hors" ${l.zone === "hors" ? "selected" : ""}>Hors ALD</option></select></label>` : "";
+  const tools = `<div class="l-tools">${l.kind !== "texte" ? `<button type="button" class="icon-btn" data-act="fav-line" data-i="${i}" title="Ajouter aux favoris" aria-label="Ajouter ce médicament aux favoris">☆</button>` : ""}<button type="button" class="icon-btn" data-act="dup-line" data-i="${i}" title="Dupliquer" aria-label="Dupliquer la ligne"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5"/></svg></button><button type="button" class="icon-btn" data-act="move-line" data-i="${i}" data-dir="-1" aria-label="Monter la ligne" title="Monter" ${i === 0 ? "disabled" : ""}>↑</button><button type="button" class="icon-btn" data-act="move-line" data-i="${i}" data-dir="1" aria-label="Descendre la ligne" title="Descendre" ${i === n - 1 ? "disabled" : ""}>↓</button><button type="button" class="icon-btn del" data-act="del-line" data-i="${i}" aria-label="Supprimer la ligne" title="Supprimer">×</button></div>`;
+  if (l.kind === "texte") {
+    return `<div class="rxline tx" data-i="${i}"><div class="rx-num">–</div><div class="rx-body"><label class="mini" for="${id("texte")}">Texte libre : examens, soins, conseils…</label><textarea id="${id("texte")}" data-l="texte" rows="2" placeholder="ex. NFS, CRP, ionogramme sanguin, créatininémie avec DFG">${esc(l.texte)}</textarea>${zone ? `<div class="opts">${zone}</div>` : ""}</div>${tools}</div>`;
+  }
+  const f = (k, label, ph, attrs = "") => `<label class="field"><span>${label}</span><input id="${id(k)}" data-l="${k}" value="${esc(l[k])}" placeholder="${ph}" ${attrs}></label>`;
+  /* liste de suggestions : favoris, posologies, durées, quantités */
+  return `<div class="rxline" data-i="${i}"><div class="rx-num">${num}.</div><div class="rx-body">
+    <div class="g3"><div class="field ac"><label class="mini" for="${id("dci")}">Médicament (DCI ou nom commercial) *</label><input id="${id("dci")}" data-l="dci" data-ac="${i}" value="${esc(l.dci)}" placeholder="Tapez 2 lettres : amox, doliprane…" autocomplete="off"><div class="ac-list" id="ac-${i}" hidden></div></div>${f("dosage", "Dosage", "1 g")}${f("forme", "Forme", "comprimé", 'list="formes"')}</div>
+    <div class="g3">${f("posologie", "Posologie", "1 comprimé matin et soir", 'list="poso"')}${f("duree", "Durée", "6 jours", 'list="durees"')}${f("quantite", "Quantité", "1 boîte", 'list="qtes"')}</div>
+    ${l.posoAuto ? `<p class="hint">Posologie usuelle adulte proposée : vérifiez-la et adaptez-la au patient (âge, poids, fonction rénale, indication).</p>` : ""}
+    <div class="opts"><label class="check-i"><input type="checkbox" id="${id("nr")}" data-l="nr" ${l.nr ? "checked" : ""}>Non substituable</label>
+      ${l.nr ? `<select id="${id("nrMotif")}" data-l="nrMotif" aria-label="Motif de non-substitution">${Object.entries(NR_MOTIFS).map(([k, v]) => `<option value="${k}" ${(l.nrMotif || "MTE") === k ? "selected" : ""}>${v}</option>`).join("")}</select>` : ""}
+      <label class="check-i"><input type="checkbox" id="${id("horsAmm")}" data-l="horsAmm" ${l.horsAmm ? "checked" : ""}>Hors AMM</label>${zone}
+      <input class="grow" id="${id("commentaire")}" data-l="commentaire" value="${esc(l.commentaire)}" placeholder="Commentaire (facultatif)" aria-label="Commentaire"></div>
+  </div>${tools}</div>`;
+}
+function previewOrdo(d) { const x = clone(d); const p = getPatient(x.patientId); if (p) x.patient = snapPatient(p); delete x.prescripteur; return x; }
+function viewEditor() {
+  const d = state.draft, p = getPatient(d.patientId), bizone = d.type === "bizone";
+  const cur = p || d.patient;
+  const meds = [...S.meds].sort((a, b) => medTitle(a).localeCompare(medTitle(b), "fr"));
+  const mods = [...S.modeles].sort((a, b) => (a.nom || "").localeCompare(b.nom || "", "fr"));
+  let k = 0;
+  return `<div class="page-head"><div class="title"><span class="eyebrow">${p ? esc(listName(p)) : "Ordonnance"}</span><h1>${state.isNew ? "Nouvelle ordonnance" : "Modifier l’ordonnance"}</h1></div>
+    <div class="row only-narrow"><button type="button" class="btn" data-act="preview">Aperçu de l’ordonnance</button></div></div>
+  <div class="ed-layout">
+  <form id="ed" class="editor" autocomplete="off">
+    ${editorLists()}
+    ${p?.allergies ? `<div class="banner bad"><p><strong>Allergies et intolérances :</strong> ${esc(p.allergies)}</p></div>` : ""}
+    <section class="card"><div class="grid">
+      <div class="field span2"><label for="${cur ? "ed-change" : "ed-pq"}" class="mini">Patient *</label>
+        <div class="pick">${cur ? `<div class="picked"><strong>${esc(listName(cur))}</strong><span class="muted">${esc(patientSub(cur, d.date, ""))}${p ? "" : " · fiche supprimée"}</span><button type="button" class="btn sm" id="ed-change" data-act="pick-clear">Changer</button></div>`
+          : `<div class="pick-in"><input id="ed-pq" data-pick placeholder="Rechercher un patient : nom ou prénom…" autocomplete="off" value="${esc(state.pickQ || "")}"><div class="pick-list" id="pickList" hidden></div></div><button type="button" class="btn" data-act="patient-new" data-inline="1">+ Nouveau</button>`}</div></div>
+      <label class="field"><span>Date</span><input id="ed-date" type="date" data-f="date" value="${esc(d.date)}"></label>
+      <label class="field"><span>Fait à</span><input id="ed-lieu" data-f="lieu" value="${esc(d.lieu)}" placeholder="Ville"></label>
+      <label class="field"><span>Type d’ordonnance</span><select id="ed-type" data-f="type">${Object.entries(TYPES).map(([k2, v]) => `<option value="${k2}" ${d.type === k2 ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+      <label class="field"><span>Poids (kg)</span><input id="ed-poids" type="number" step="0.1" min="0" inputmode="decimal" data-f="poids" value="${esc(d.poids)}" placeholder="Facultatif"></label>
+      <label class="field"><span>Renouvellement</span><select id="ed-renew" data-f="renouvellement">${Array.from({ length: 12 }, (_, i) => `<option value="${i}" ${toNum(d.renouvellement) === i ? "selected" : ""}>${i ? `À renouveler ${i} fois` : "Non renouvelable"}</option>`).join("")}</select></label>
+    </div></section>
+    <section class="card"><div class="card-head"><h2>Prescriptions</h2>${bizone ? `<span class="pill">Bizone : choisissez la zone de chaque ligne</span>` : ""}</div>
+      <div id="lines">${d.lignes.map((l, i) => edLineHTML(l, i, d.lignes.length, bizone, l.kind === "texte" ? 0 : ++k)).join("")}</div>
+      <div class="line-tools"><button type="button" class="btn" data-act="add-med">+ Médicament</button><button type="button" class="btn" data-act="add-text">+ Texte libre</button>
+        ${meds.length ? `<select id="addFav" aria-label="Ajouter un médicament favori"><option value="">+ Depuis mes favoris…</option>${meds.map((m) => `<option value="${m.id}">${esc(medTitle(m))}</option>`).join("")}</select>` : ""}
+        ${mods.length ? `<select id="addModele" aria-label="Insérer un modèle"><option value="">+ Insérer un modèle…</option>${mods.map((m) => `<option value="${m.id}">${esc(m.nom)}</option>`).join("")}</select>` : ""}</div>
+      <p class="note" style="margin-top:12px">Prescrivez en DCI. Les stupéfiants et assimilés exigent une ordonnance sécurisée et ne peuvent pas être prescrits avec ce site.</p>
+    </section>
+    <section class="card"><label class="field"><span>Mentions complémentaires (imprimées)</span><textarea id="ed-mentions" data-f="mentions" rows="3" placeholder="ex. Reconsulter si la fièvre persiste au-delà de 48 heures.">${esc(d.mentions)}</textarea></label></section>
+    <div class="sticky-actions"><span class="muted kbd-hint" style="margin-right:auto;font-size:.8rem;align-self:center"><span class="kbd">⌘ S</span> enregistrer · <span class="kbd">⌘ ↵</span> enregistrer et PDF (Ctrl sous Windows)</span><button type="button" class="btn ghost" data-act="cancel-edit">Annuler</button><button type="button" class="btn" data-act="save-ordo">Enregistrer</button><button type="button" class="btn primary" data-act="save-pdf">Enregistrer et télécharger le PDF</button></div>
+  </form>
+  <aside class="ed-preview" id="edPreview" aria-label="Aperçu de l’ordonnance"><div class="prev-cap"><span class="eyebrow">Aperçu en direct</span><span class="muted" style="font-size:.78rem">format ${esc(S.settings.format || "A5")}</span></div><div id="edPaper">${paperHTML(previewOrdo(d))}</div></aside>
+  </div>`;
+}
+function editorLists() {
+  const uniq = (arr) => [...new Set(arr.filter(Boolean))], opt = (v) => `<option value="${esc(v)}">`;
+  return `<datalist id="favdci">${S.meds.map((m) => opt(medTitle(m))).join("")}</datalist><datalist id="poso">${uniq([...S.meds.map((m) => m.posologie), ...POSO]).map(opt).join("")}</datalist><datalist id="durees">${uniq([...S.meds.map((m) => m.duree), ...DUREES]).map(opt).join("")}</datalist><datalist id="qtes">${uniq([...S.meds.map((m) => m.quantite), ...QTES]).map(opt).join("")}</datalist>`;
+}
+function renderPick() {
+  const box = $("#pickList"); if (!box) return;
+  const q = (state.pickQ || "").trim(), ms = matchPatients(q, 8);
+  box.innerHTML = ms.map((x) => `<button type="button" data-act="pick" data-id="${x.id}"><span>${esc(listName(x))}${x.allergies ? ' <span class="pill bad">Allergies</span>' : ""}</span><span class="muted">${x.naissance ? esc(fmtDate(x.naissance) + " · " + ageOf(x.naissance)) : ""}</span></button>`).join("")
+    + (q && !ms.length ? `<button type="button" data-act="patient-new" data-inline="1" data-prefill="${esc(q)}"><span>Créer le patient « ${esc(q)} »</span><span class="muted">Nouvelle fiche</span></button>` : "")
+    + (!q && !S.patients.length ? `<button type="button" data-act="patient-new" data-inline="1"><span>Créer un premier patient</span></button>` : "");
+  box.hidden = !box.innerHTML;
+}
+function focusEditor() {
+  if ($("#ed-pq")) { $("#ed-pq").focus(); return; }
+  const i = (state.draft?.lignes || []).findIndex(isEmptyLine);
+  if (i >= 0) document.getElementById(`l${i}-${state.draft.lignes[i].kind === "texte" ? "texte" : "dci"}`)?.focus();
+}
+function choosePatient(p) { const d = state.draft; d.patientId = p.id; d.patient = snapPatient(p); if (!d.poids && p.poids) d.poids = p.poids; if (p.ald && d.type === "standard") d.type = "bizone"; state.pickQ = ""; rerenderEditor(); focusEditor(); }
+let previewTimer;
+function schedulePreview() { autosave(); clearTimeout(previewTimer); previewTimer = setTimeout(() => { const el = $("#edPaper"); if (el && state.draft) { el.innerHTML = paperHTML(previewOrdo(state.draft)); fitPreview(); } }, 150); }
+function fitPreview() { const box = $("#edPreview"), p = box?.querySelector(".paper"); if (!p || !box.clientWidth) return; const base = p.classList.contains("a4") ? 794 : 560; p.style.zoom = String(Math.min(1, (box.clientWidth - 26) / base)); }
+window.addEventListener("resize", () => { if (state.view === "edit") fitPreview(); if ($("#obPreview")) fitBox("obPreview"); });
+function rerenderEditor(focusId) { state.dirty = true; autosave(); const y = window.scrollY; render(); window.scrollTo(0, y); if (focusId) document.getElementById(focusId)?.focus(); }
+function finalizeDraft(d) {
+  const p = getPatient(d.patientId); if (p) d.patient = snapPatient(p);
+  d.lignes = d.lignes.filter((l) => !isEmptyLine(l)).map((l) => (l.kind === "texte" ? { kind: "texte", texte: String(l.texte).trim(), zone: l.zone || "ald" } : { ...(({ posoAuto, ...x }) => x)(l), kind: "med", nr: !!l.nr, horsAmm: !!l.horsAmm }));
+  d.renouvellement = Math.min(11, Math.max(0, Math.round(toNum(d.renouvellement))));
+  if (!settingsProblems().length) d.prescripteur = clone(S.settings);
+  return d;
+}
+function draftProblems(d) { const p = []; if (!d.patient?.nom) p.push("choisissez un patient"); if (!d.lignes.length) p.push("ajoutez au moins une prescription"); return p; }
+async function saveDraft(thenPdf) {
+  const d = finalizeDraft(clone(state.draft));
+  const probs = draftProblems(d);
+  if (probs.length) { toast("Pour enregistrer : " + probs.join(", ") + ".", true); return; }
+  await save("ordos", d); state.dirty = false; clearAutosave();
+  toast("Ordonnance enregistrée.");
+  go("ordo", { ordoId: d.id });
+  if (thenPdf) downloadPDF(d);
+}
+
+/* ---------- Paramètres ---------- */
+function viewSettings() {
+  const s = S.settings, sig = state.imgDraft.signature ?? s.signature;
+  const f = (name, label, attrs = "", cls = "", hint = "") => `<label class="field ${cls}"><span>${label}</span><input id="sf-${name}" name="${name}" value="${esc(s[name] ?? "")}" ${attrs}>${hint ? `<small>${hint}</small>` : ""}</label>`;
+  const lock = S.profil ? "readonly" : "", lockHint = S.profil ? "Vérifié dans l’annuaire santé" : "";
+  return `<div class="page-head"><div class="title"><span class="eyebrow">En-tête de vos ordonnances</span><h1>Paramètres</h1></div></div>
+  <form data-form="settings" class="settings" autocomplete="off">
+    <section class="card"><h2>Prescripteur</h2><p>Votre identité telle qu’elle apparaît en haut de chaque ordonnance.</p>
+      <div class="grid">${f("titre", "Titre", 'placeholder="Dr"')}${f("prenom", "Prénom", lock, "", lockHint)}${f("nom", "Nom *", lock, "", lockHint)}${f("specialite", "Spécialité", "", "span2")}
+        <label class="field span-all"><span>Titres et qualifications</span><textarea id="sf-qualifs" name="qualifs" rows="2" placeholder="ex. Ancien interne des hôpitaux de Brest&#10;DU de médecine du sport">${esc(s.qualifs)}</textarea><small>Une ligne par titre.</small></label></div></section>
+    <section class="card"><h2>Identifiants</h2><p>Le numéro RPPS est obligatoire sur toute prescription.</p>
+      <div class="grid">${f("rpps", "N° RPPS *", lock || 'inputmode="numeric" maxlength="14" placeholder="11 chiffres"', "", lockHint)}${f("am", "N° Assurance Maladie", 'placeholder="ex. 29 1 23456 7"', "", "Identifiant de facturation (n° AM)")}${f("finess", "N° FINESS", "", "", "Établissement, si concerné")}</div></section>
+    <section class="card"><h2>Cabinet</h2><p>Adresse et coordonnées pour vos patients et les pharmaciens.</p>
+      <div class="grid"><label class="field span-all"><span>Adresse</span><textarea id="sf-adresse" name="adresse" rows="2">${esc(s.adresse)}</textarea></label>
+        ${f("cp", "Code postal")}${f("ville", "Ville", "", "", "Utilisée pour « Fait à »")}${f("tel", "Téléphone", 'type="tel"')}${f("email", "E-mail", 'type="email"')}
+        ${f("conventionnement", "Conventionnement", "", "span2")}${f("horaires", "Horaires ou mention de rendez-vous", "", "span2")}${f("urgence", "Mention d’urgence en pied de page", "", "span-all")}</div></section>
+    <section class="card"><h2>Mise en page</h2><p>Format, police, en-tête, couleur et signature.${S.profil ? ` <button type="button" class="linkish" data-act="ob-start">Relancer l’assistant de configuration</button>` : ""}</p>
+      <div class="grid">
+        <div class="field"><span>Format</span><div class="segs" role="radiogroup" aria-label="Format">${["A5", "A4"].map((x) => `<label class="seg"><input type="radio" id="sf-format-${x}" name="format" value="${x}" ${(s.format || "A5") === x ? "checked" : ""}><span>${x}</span></label>`).join("")}</div><small>A5 : demi-feuille, le format usuel.</small></div>
+        <div class="field"><span>Police</span><div class="segs" role="radiogroup" aria-label="Police">${[["sans", "Moderne"], ["serif", "Classique"]].map(([v, l]) => `<label class="seg"><input type="radio" id="sf-police-${v}" name="police" value="${v}" ${(s.police || "sans") === v ? "checked" : ""}><span>${l}</span></label>`).join("")}</div></div>
+        <div class="field"><span>En-tête</span><div class="segs" role="radiogroup" aria-label="Disposition de l’en-tête">${[["gauche", "À gauche"], ["centre", "Centré"]].map(([v, l]) => `<label class="seg"><input type="radio" id="sf-disposition-${v}" name="disposition" value="${v}" ${(s.disposition || "gauche") === v ? "checked" : ""}><span>${l}</span></label>`).join("")}</div></div>
+        <div class="field span2"><span>Couleur</span><div class="swatches" role="radiogroup" aria-label="Couleur">${COLORS.map(([c, n], i) => `<label class="swatch"><input type="radio" id="sf-couleur-${i}" name="couleur" value="${c}" ${accentOf(s) === c ? "checked" : ""}><i style="--c:${c}"></i><span>${n}</span></label>`).join("")}</div></div>
+        <div class="field span-all"><span>Signature</span><div class="img-row"><div class="img-prev">${sig ? `<img src="${esc(sig)}" alt="Signature">` : "Aucune signature"}</div>
+          <label class="btn file-btn">Choisir une image<input type="file" id="sigFile" accept="image/png,image/jpeg,image/webp"></label>${sig ? `<button type="button" class="btn ghost" data-act="sig-remove">Retirer</button>` : ""}</div>
+          <small>Photo ou scan de votre signature sur fond blanc. Sans image, un emplacement est laissé pour signer à la main.</small></div>
+      </div></section>
+    <section class="card"><h2>Sauvegarde</h2><p>Téléchargez une copie de vos patients, favoris, modèles et ordonnances, ou restaurez une sauvegarde.</p>
+      <div class="row"><button type="button" class="btn" data-act="backup-export">Exporter une sauvegarde (JSON)</button><label class="btn file-btn">Importer une sauvegarde<input type="file" id="importFile" accept="application/json,.json"></label></div></section>
+    <section class="card"><h2>À savoir</h2><p style="margin:0">Ce site met en page vos prescriptions. Il ne vérifie ni les interactions, ni les contre-indications, ni les posologies, et n’est pas un logiciel d’aide à la prescription certifié par la HAS ni un service de e-prescription. ${backend?.mode === "db" ? "Les données de vos patients sont conservées dans votre compte Claude, qui n’est pas un hébergeur certifié HDS." : "Les données de vos patients restent dans ce navigateur, sur cet appareil : rien n’est envoyé sur Internet. Exportez régulièrement une sauvegarde."}</p></section>
+    <div class="sticky-actions"><button type="submit" class="btn primary">Enregistrer les paramètres</button></div>
+  </form>`;
+}
+function settingsFromForm(form) {
+  const fd = new FormData(form), o = {};
+  for (const k of Object.keys(DEFAULT_SETTINGS)) if (fd.has(k)) o[k] = String(fd.get(k)).trim();
+  if (o.rpps) o.rpps = o.rpps.replace(/\s/g, "");
+  return o;
+}
+function keepSettingsForm() {
+  const form = document.querySelector('form[data-form="settings"]'); if (!form) return render();
+  const keep = S.settings; S.settings = { ...keep, ...settingsFromForm(form) }; const y = window.scrollY; render(); S.settings = keep; window.scrollTo(0, y);
+}
+
+/* ---------- Modale, toast ---------- */
+function openModal(html, size = "") { const m = $("#modal"); m.innerHTML = `<div class="modal-card ${size}" role="dialog" aria-modal="true">${html}</div>`; m.hidden = false; state.modal = true; setTimeout(() => m.querySelector("input:not([type=hidden]),select,textarea,button")?.focus(), 30); }
+function closeModal() { const m = $("#modal"); m.hidden = true; m.innerHTML = ""; state.modal = false; state.onConfirm = null; }
+function confirmModal(title, text, okLabel, onOk, danger = false) {
+  openModal(`<h2>${esc(title)}</h2><p>${esc(text)}</p><div class="modal-actions"><button type="button" class="btn ghost" data-act="modal-close">Annuler</button><button type="button" class="btn ${danger ? "danger-solid" : "primary"}" data-act="confirm-ok">${esc(okLabel)}</button></div>`, "narrow");
+  state.onConfirm = onOk;
+}
+let toastTimer;
+function toast(msg, err = false) { const t = $("#toast"); t.textContent = msg; t.className = "toast" + (err ? " err" : ""); t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), err ? 6000 : 3000); }
+
+/* ---------- Fichiers ---------- */
+async function saveFile(filename, data) {
+  const dl = await capDownloads;
+  if (dl) { try { await dl.save({ filename, data }); toast("Fichier enregistré."); } catch (e) { if (e?.code !== "declined") toast("Le téléchargement n’a pas abouti. Réessayez dans un instant.", true); } return; }
+  if (window.claude) { toast("Le téléchargement n’est pas disponible dans cette vue. Ouvrez la page dans claude.ai.", true); return; }
+  const blob = data instanceof Blob ? data : new Blob([data]);
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+const safeName = (s) => String(s).replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, " ").trim();
+function resizeImage(file, maxW, maxH) {
+  return new Promise((resolve, reject) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => { const k = Math.min(1, maxW / img.width, maxH / img.height); const c = document.createElement("canvas"); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); resolve(c.toDataURL("image/png")); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("image")); };
+    img.src = url;
+  });
+}
+
+function buildPDF(o) {
+  const { jsPDF } = window.jspdf;
+  const P = prescOf(o), p = o.patient || snapPatient(getPatient(o.patientId)) || {}, a4 = P.format === "A4";
+  const pdf = new jsPDF({ unit: "mm", format: a4 ? "a4" : "a5" });
+  const W = pdf.internal.pageSize.getWidth(), H = pdf.internal.pageSize.getHeight();
+  const M = a4 ? 18 : 12, R = W - M, CW = R - M, fs = a4 ? 10 : 8.6, lh = fs * 0.43;
+  const ACC = hexRgb(accentOf(P)), INK = [18, 32, 29], MUT = [86, 106, 101], LINE = [215, 223, 221], TINT = [243, 246, 245];
+  const tx = (s) => String(s ?? "").replace(/[  ]/g, " ");
+  const FOOT = 16, F = P.police === "serif" ? "times" : "helvetica", centre = P.disposition === "centre";
+  let y = M;
+  const ensure = (h) => { if (y + h > H - FOOT - 4) { pdf.addPage(); y = M; } };
+  const para = (text, x, w, style = "normal", size = fs, color = INK) => { pdf.setFont(F, style); pdf.setFontSize(size); pdf.setTextColor(...color); const ls = pdf.splitTextToSize(tx(text), w); ensure(ls.length * size * 0.43); pdf.text(ls, x, y + size * 0.35); y += ls.length * size * 0.43; };
+
+  // En-tête prescripteur
+  if (centre) {
+    let cy = y;
+    pdf.setFont(F, "bold"); pdf.setFontSize(fs + 3.5); pdf.setTextColor(...INK);
+    pdf.splitTextToSize(tx(doctorName(P) || "Prescripteur"), CW).forEach((x) => { pdf.text(x, W / 2, cy + 4, { align: "center" }); cy += (fs + 3.5) * 0.45; });
+    cy += 1.5;
+    if (P.specialite) { pdf.setFont(F, "bold"); pdf.setFontSize(fs); pdf.setTextColor(...ACC); pdf.text(tx(P.specialite), W / 2, cy + 2.5, { align: "center" }); cy += lh + 0.6; }
+    pdf.setFont(F, "normal"); pdf.setFontSize(fs - 0.6); pdf.setTextColor(...MUT);
+    [...lines(P.qualifs), [...lines(P.adresse), [P.cp, P.ville].filter(Boolean).join(" ")].filter(Boolean).join(" · "), [P.tel ? "Tél. " + P.tel : "", P.email].filter(Boolean).join(" · ")].filter(Boolean)
+      .forEach((l) => pdf.splitTextToSize(tx(l), CW).forEach((x) => { pdf.text(x, W / 2, cy + 2.5, { align: "center" }); cy += (fs - 0.6) * 0.43; }));
+    const ids = [["RPPS", P.rpps], ["N° AM", P.am], ["FINESS", P.finess]].filter(([, v]) => v).map(([k, v]) => `${k} ${v}`).join("   ·   ");
+    if (ids) { cy += 1.5; pdf.setFont("courier", "bold"); pdf.setFontSize(fs - 0.8); pdf.setTextColor(...INK); pdf.text(tx(ids), W / 2, cy + 2.5, { align: "center" }); cy += (fs - 0.8) * 0.45; }
+    y = cy + 3;
+  } else {
+    const idW = a4 ? 52 : 44, lw = CW - idW - 4;
+    let ly = y;
+    pdf.setFont(F, "bold"); pdf.setFontSize(fs + 3.5); pdf.setTextColor(...INK);
+    pdf.splitTextToSize(tx(doctorName(P) || "Prescripteur"), lw).forEach((x) => { pdf.text(x, M, ly + 4); ly += (fs + 3.5) * 0.45; });
+    ly += 1.5;
+    if (P.specialite) { pdf.setFont(F, "bold"); pdf.setFontSize(fs); pdf.setTextColor(...ACC); pdf.text(tx(P.specialite), M, ly + 2.5); ly += lh + 0.6; }
+    pdf.setFont(F, "normal"); pdf.setFontSize(fs - 0.6); pdf.setTextColor(...MUT);
+    [...lines(P.qualifs), ...lines(P.adresse), [P.cp, P.ville].filter(Boolean).join(" "), P.tel ? "Tél. " + P.tel : "", P.email].filter(Boolean)
+      .forEach((l) => pdf.splitTextToSize(tx(l), lw).forEach((x) => { pdf.text(x, M, ly + 2.5); ly += (fs - 0.6) * 0.43; }));
+    let ry = y + 2;
+    pdf.setFontSize(fs - 0.8);
+    [["RPPS", P.rpps], ["N° AM", P.am], ["FINESS", P.finess]].filter(([, v]) => v).forEach(([k, v]) => { pdf.setFont(F, "normal"); pdf.setTextColor(...MUT); pdf.text(k, R - idW, ry + 2.5); pdf.setFont("courier", "bold"); pdf.setTextColor(...INK); pdf.text(tx(v), R, ry + 2.5, { align: "right" }); ry += (fs - 0.8) * 0.5; });
+    y = Math.max(ly, ry) + 3;
+  }
+  pdf.setDrawColor(...ACC); pdf.setLineWidth(0.6); pdf.line(M, y, R, y); pdf.setLineWidth(0.2);
+  y += 6;
+
+  // Lieu, date, patient
+  pdf.setFont(F, "normal"); pdf.setFontSize(fs); pdf.setTextColor(...INK);
+  pdf.text(tx((o.lieu ? `À ${o.lieu}, le ` : "Le ") + fmtLong(o.date)), R, y, { align: "right" });
+  y += lh + 3;
+  para(patientName(p), M, CW, "bold", fs + 1.5);
+  const sub = patientSub(p, o.date, o.poids); if (sub) para(sub, M, CW, "normal", fs, MUT);
+  y += 4;
+  if (TITLES[o.type]) { pdf.setFont(F, "bold"); pdf.setFontSize(fs); pdf.setTextColor(...ACC); pdf.text(tx(TITLES[o.type].toUpperCase()), W / 2, y + 2, { align: "center" }); y += lh + 4; }
+
+  // Prescriptions
+  let n = 0;
+  const drawLine = (l) => {
+    if (l.kind === "texte") {
+      pdf.setFont(F, "normal"); pdf.setFontSize(fs);
+      const ls = pdf.splitTextToSize(tx(l.texte), CW - 6); ensure(ls.length * lh + 2);
+      pdf.setTextColor(...ACC); pdf.setFont(F, "bold"); pdf.text("-", M + 1, y + fs * 0.35);
+      pdf.setFont(F, "normal"); pdf.setTextColor(...INK); pdf.text(ls, M + 6, y + fs * 0.35); y += ls.length * lh + 3; return;
+    }
+    n++;
+    pdf.setFont(F, "bold"); pdf.setFontSize(fs + 0.6);
+    const head = pdf.splitTextToSize(tx(medTitle(l)), CW - 6);
+    pdf.setFont(F, "normal"); pdf.setFontSize(fs);
+    const det = medLines(l).flatMap((x) => pdf.splitTextToSize(tx(x), CW - 6).map((t) => [t, /^Non substituable|^Prescription hors AMM/.test(x)]));
+    ensure(head.length * lh + det.length * lh + 3);
+    pdf.setFont(F, "bold"); pdf.setFontSize(fs + 0.6); pdf.setTextColor(...ACC); pdf.text(`${n}.`, M, y + fs * 0.35);
+    pdf.setTextColor(...INK); pdf.text(head, M + 6, y + fs * 0.35); y += head.length * (fs + 0.6) * 0.43;
+    det.forEach(([t, it]) => { pdf.setFont(F, it ? "italic" : "normal"); pdf.setFontSize(fs); pdf.setTextColor(...INK); pdf.text(t, M + 6, y + fs * 0.35); y += lh; });
+    y += 3;
+  };
+  const zoneHead = (label) => {
+    pdf.setFont(F, "bold"); pdf.setFontSize(fs - 1);
+    const ls = pdf.splitTextToSize(tx(label), CW - 6), h = ls.length * (fs - 1) * 0.43 + 4;
+    ensure(h + 8); pdf.setDrawColor(...INK); pdf.setFillColor(...TINT); pdf.rect(M, y, CW, h, "FD");
+    pdf.setTextColor(...INK); pdf.text(ls, W / 2, y + 2 + (fs - 1) * 0.35, { align: "center" }); y += h + 4;
+  };
+  if (o.type === "bizone") {
+    [["ald", ZONE_ALD], ["hors", ZONE_HORS]].forEach(([z, label], zi) => {
+      if (zi) y += 2;
+      zoneHead(label);
+      const ls = (o.lignes || []).filter((l) => (l.zone || "ald") === z);
+      if (ls.length) ls.forEach(drawLine); else { para("Néant", M + 6, CW - 6, "normal", fs, MUT); y += 3; }
+    });
+  } else (o.lignes || []).forEach(drawLine);
+
+  if (toNum(o.renouvellement)) { y += 1; para(`À renouveler ${toNum(o.renouvellement)} fois.`, M, CW, "bold", fs); }
+  if (o.mentions) { y += 2; para(o.mentions, M, CW, "normal", fs); }
+
+  // Signature
+  const sh = a4 ? 26 : 22, sw = a4 ? 60 : 48;
+  y += 4; ensure(sh + 4);
+  const sy = Math.max(y, H - FOOT - 6 - sh);
+  pdf.setFont(F, "normal"); pdf.setFontSize(fs - 1); pdf.setTextColor(...MUT); pdf.text("Signature", R - sw, sy + 2);
+  if (P.signature) { try { const ip = pdf.getImageProperties(P.signature); let h = sh - 5, w = (h * ip.width) / ip.height; if (w > sw) { w = sw; h = (w * ip.height) / ip.width; } pdf.addImage(P.signature, "PNG", R - sw, sy + 4, w, h); } catch (e) {} }
+
+  // Pied de page
+  const foot = [P.urgence, [P.conventionnement, P.horaires].filter(Boolean).join(" · ")].filter(Boolean), pages = pdf.getNumberOfPages();
+  for (let i = 1; i <= pages; i++) {
+    pdf.setPage(i); pdf.setDrawColor(...LINE); pdf.line(M, H - FOOT, R, H - FOOT);
+    let fy = H - FOOT + 4;
+    foot.forEach((t, j) => { pdf.setFont(F, j ? "normal" : "bold"); pdf.setFontSize(fs - 1.4); pdf.setTextColor(...(j ? MUT : INK)); pdf.text(tx(t), W / 2, fy, { align: "center" }); fy += (fs - 1.4) * 0.45; });
+    if (pages > 1) { pdf.setFont(F, "normal"); pdf.setFontSize(fs - 1.6); pdf.setTextColor(...MUT); pdf.text(`${i}/${pages}`, R, H - 5, { align: "right" }); }
+  }
+  return pdf;
+}
+async function downloadPDF(o) {
+  const probs = settingsProblems();
+  if (probs.length && !o.prescripteur) { toast("Avant de télécharger, renseignez " + probs.join(" et ") + " dans Paramètres.", true); return; }
+  if (backend?.mode === "supabase") { await downloadServerPDF(o); return; }
+  if (!window.jspdf?.jsPDF) { toast("Le générateur PDF n’a pas pu se charger. Vérifiez votre connexion puis rechargez la page.", true); return; }
+  let pdf; try { pdf = buildPDF(o); } catch (e) { console.error(e); toast("La création du PDF a échoué.", true); return; }
+  const p = o.patient || getPatient(o.patientId) || {};
+  await saveFile(safeName(`Ordonnance ${String(p.nom || "").toUpperCase()} ${p.prenom || ""} ${o.date}`) + ".pdf", pdf.output("blob"));
+}
+
+async function downloadServerPDF(o) {
+  const { data } = await sb.auth.getSession(), tok = data.session?.access_token;
+  if (!tok) { renderAuth("login", "Votre session a expiré : reconnectez-vous."); return; }
+  toast("Création du PDF…");
+  let blob;
+  try {
+    const C = window.ORDO_CONFIG;
+    const r = await fetch(`${C.supabaseUrl}/functions/v1/ordonnance-pdf`, { method: "POST", headers: { Authorization: `Bearer ${tok}`, apikey: C.supabaseKey, "Content-Type": "application/json" }, body: JSON.stringify({ id: o.id }) });
+    if (!r.ok) { let m = ""; try { m = (await r.json()).error; } catch (e) {} toast(m || "La création du PDF a échoué.", true); return; }
+    blob = await r.blob();
+  } catch (e) { toast("Le serveur ne répond pas. Vérifiez votre connexion Internet.", true); return; }
+  const p = o.patient || getPatient(o.patientId) || {};
+  await saveFile(safeName(`Ordonnance ${String(p.nom || "").toUpperCase()} ${p.prenom || ""} ${o.date}`) + ".pdf", blob);
+}
+
+/* ---------- Connexion des médecins ---------- */
+const RPPS_MSG = {
+  format: "Le numéro RPPS comporte 11 chiffres.",
+  inconnu: "Ce numéro RPPS ne correspond à aucun médecin de l’annuaire santé.",
+  nom_different: "Le nom ou le prénom ne correspond pas à ce numéro RPPS. Saisissez-les tels qu’ils figurent dans l’annuaire santé.",
+  deja_utilise: "Un compte existe déjà pour ce numéro RPPS. Connectez-vous ou utilisez « Mot de passe oublié ».",
+};
+function authError(e) {
+  const m = String(e?.message || e || "");
+  if (/Invalid login credentials/i.test(m)) return "E-mail ou mot de passe incorrect.";
+  if (/banned/i.test(m)) return "Ce compte est suspendu. Contactez l’administrateur de la plateforme.";
+  if (/Email not confirmed/i.test(m)) return "Votre adresse e-mail n’est pas encore confirmée : cliquez sur le lien reçu par e-mail.";
+  if (/already registered|already exists/i.test(m)) return "Un compte existe déjà avec cette adresse e-mail.";
+  if (/rate limit|too many|seconds/i.test(m)) return "Trop de tentatives ou d’e-mails envoyés. Réessayez dans quelques minutes.";
+  if (/password/i.test(m) && /weak|short|least|characters/i.test(m)) return "Mot de passe trop faible : au moins 10 caractères, avec lettres et chiffres.";
+  if (/RPPS|saving new user/i.test(m)) return "Inscription refusée : le numéro RPPS, le nom ou le prénom ne correspondent pas à un médecin de l’annuaire santé.";
+  return "Une erreur est survenue. Vérifiez votre connexion et réessayez.";
+}
+function authMsg(text, err = false) { const el = $("#authMsg"); if (!el) return; el.innerHTML = text ? `<div class="banner ${err ? "bad" : ""}" role="alert"><p>${err ? "<strong>Impossible de continuer.</strong> " : ""}${esc(text)}</p></div>` : ""; if (text) el.scrollIntoView({ block: "nearest", behavior: "smooth" }); }
+function renderAuth(mode = "login", info = "") {
+  state.authMode = mode;
+  $(".side").hidden = true; $(".shell").classList.add("auth-mode");
+  const field = (id, name, label, type, auto, extra = "") => `<label class="field"><span>${label}</span><input id="${id}" name="${name}" type="${type}" autocomplete="${auto}" required ${extra}></label>`;
+  const forms = {
+    login: `<form data-form="login" class="card"><div><h1>Connexion</h1><p class="note">Accédez à votre espace médecin.</p></div>
+      ${field("au-email", "email", "E-mail", "email", "email")}${field("au-pass", "password", "Mot de passe", "password", "current-password")}
+      <button type="submit" class="btn primary">Se connecter</button>
+      <div class="split"><button type="button" class="linkish" data-act="auth" data-mode="forgot">Mot de passe oublié ?</button></div></form>`,
+    signup: `<form data-form="signup" class="card"><div><h1>Créer un compte médecin</h1><p class="note">Votre numéro RPPS, votre nom et votre prénom sont vérifiés dans l’annuaire santé officiel. Ils apparaîtront sur vos ordonnances et ne pourront pas être modifiés.</p></div>
+      ${field("su-nom", "nom", "Nom", "text", "family-name")}${field("su-prenom", "prenom", "Prénom", "text", "given-name")}
+      ${field("su-rpps", "rpps", "N° RPPS (11 chiffres)", "text", "off", 'inputmode="numeric" maxlength="14"')}
+      ${field("su-email", "email", "E-mail professionnel", "email", "email")}
+      ${field("su-pass", "password", "Mot de passe (10 caractères minimum)", "password", "new-password", 'minlength="10"')}${field("su-pass2", "password2", "Confirmer le mot de passe", "password", "new-password", 'minlength="10"')}
+      <label class="check"><input type="checkbox" id="su-cert" name="cert" required><span>Je certifie être le médecin titulaire de ce numéro RPPS. L’usurpation d’identité et la falsification d’ordonnances sont des délits.</span></label>
+      <button type="submit" class="btn primary">Créer mon compte</button></form>`,
+    forgot: `<form data-form="forgot" class="card"><div><h1>Mot de passe oublié</h1><p class="note">Recevez un lien pour choisir un nouveau mot de passe.</p></div>
+      ${field("fg-email", "email", "E-mail", "email", "email")}<button type="submit" class="btn primary">Envoyer le lien</button>
+      <div class="split"><button type="button" class="linkish" data-act="auth" data-mode="login">Retour à la connexion</button></div></form>`,
+    recovery: `<form data-form="recovery" class="card"><div><h1>Nouveau mot de passe</h1><p class="note">Choisissez votre nouveau mot de passe.</p></div>
+      ${field("rc-pass", "password", "Nouveau mot de passe (10 caractères minimum)", "password", "new-password", 'minlength="10"')}${field("rc-pass2", "password2", "Confirmer", "password", "new-password", 'minlength="10"')}
+      <button type="submit" class="btn primary">Enregistrer le mot de passe</button></form>`,
+  };
+  const tabs = mode === "login" || mode === "signup" ? `<div class="auth-tabs" role="tablist" aria-label="Accès"><button type="button" role="tab" aria-selected="${mode === "login"}" data-act="auth" data-mode="login">Se connecter</button><button type="button" role="tab" aria-selected="${mode === "signup"}" data-act="auth" data-mode="signup">Créer un compte</button></div>` : "";
+  $("#main").innerHTML = `<div class="auth"><div class="auth-brand"><div class="brand-mark" aria-hidden="true"></div>Ordonnancier</div>
+    <p class="auth-intro">Rédigez et téléchargez vos ordonnances en PDF. Espace réservé aux médecins : le numéro RPPS est vérifié dans l’annuaire santé à l’inscription.</p>
+    ${tabs}<div id="authMsg"></div>${forms[mode] || forms.login}
+    <p class="legal">Rédaction d’ordonnances pour les médecins inscrits au RPPS. Les PDF sont générés par le serveur, uniquement pour un médecin connecté.</p></div>`;
+  if (info) { const el = $("#authMsg"); el.innerHTML = `<div class="banner" style="background:var(--accent-soft);border-color:transparent"><p>${esc(info)}</p></div>`; }
+  setTimeout(() => $("#main form input")?.focus(), 30);
+}
+function bootApp() { $(".side").hidden = false; $(".shell").classList.remove("auth-mode"); render(); }
+async function handleAuthForm(kind, form) {
+  const fd = new FormData(form), v = (k) => String(fd.get(k) ?? "").trim();
+  const btn = form.querySelector('button[type="submit"]'); btn.disabled = true; authMsg("");
+  try {
+    if (kind === "login") {
+      const { data, error } = await sb.auth.signInWithPassword({ email: v("email"), password: String(fd.get("password") || "") });
+      if (error) return authMsg(authError(error), true);
+      try { await startSession(data.session); } catch (e) { return authMsg("Ce compte n’a pas de profil médecin vérifié.", true); }
+      enterApp();
+    }
+    if (kind === "signup") {
+      const rpps = v("rpps").replace(/\s/g, ""), pw = String(fd.get("password") || "");
+      if (!/^\d{11}$/.test(rpps)) return authMsg(RPPS_MSG.format, true);
+      if (pw.length < 10) return authMsg("Choisissez un mot de passe d’au moins 10 caractères.", true);
+      if (pw !== String(fd.get("password2") || "")) return authMsg("Les deux mots de passe ne sont pas identiques.", true);
+      const chk = await sb.rpc("verifier_rpps", { p_rpps: rpps, p_nom: v("nom"), p_prenom: v("prenom") });
+      if (chk.error) return authMsg(authError(chk.error), true);
+      if (chk.data !== "ok") return authMsg(RPPS_MSG[chk.data] || authError(""), true);
+      const { data, error } = await sb.auth.signUp({ email: v("email"), password: pw, options: { data: { rpps, nom: v("nom"), prenom: v("prenom") }, emailRedirectTo: location.origin + location.pathname } });
+      if (error) return authMsg(authError(error), true);
+      if (data.session) { await startSession(data.session); enterApp(); return; }
+      renderAuth("login", `Compte créé et RPPS vérifié. Ouvrez l’e-mail de confirmation envoyé à ${v("email")}, cliquez sur le lien, puis connectez-vous.`);
+    }
+    if (kind === "forgot") {
+      const { error } = await sb.auth.resetPasswordForEmail(v("email"), { redirectTo: location.origin + location.pathname });
+      if (error) return authMsg(authError(error), true);
+      renderAuth("login", "Si un compte existe pour cette adresse, un lien de réinitialisation vient d’être envoyé.");
+    }
+    if (kind === "recovery") {
+      const pw = String(fd.get("password") || "");
+      if (pw.length < 10) return authMsg("Choisissez un mot de passe d’au moins 10 caractères.", true);
+      if (pw !== String(fd.get("password2") || "")) return authMsg("Les deux mots de passe ne sont pas identiques.", true);
+      const { error } = await sb.auth.updateUser({ password: pw });
+      if (error) return authMsg(authError(error), true);
+      state.recovery = false;
+      const { data } = await sb.auth.getSession();
+      await startSession(data.session); enterApp(); toast("Mot de passe modifié.");
+    }
+  } catch (e) { console.error(e); authMsg(authError(e), true); }
+  finally { if (btn.isConnected) btn.disabled = false; }
+}
+
+/* ---------- Assistant de configuration de l'espace ---------- */
+const OB_STEPS = ["Identité", "Cabinet", "Style", "Signature"];
+const SPECIALITES = ["Médecine générale", "Allergologie", "Cardiologie", "Dermatologie", "Endocrinologie", "Gastro-entérologie", "Gériatrie", "Gynécologie médicale", "Gynécologie-obstétrique", "Médecine du sport", "Médecine interne", "Néphrologie", "Neurologie", "Ophtalmologie", "ORL", "Pédiatrie", "Pneumologie", "Psychiatrie", "Rhumatologie", "Urologie"];
+const SAMPLE_ORDO = { date: todayISO(), type: "standard", poids: "", renouvellement: 0, mentions: "",
+  patient: { nom: "Exemple", prenom: "Patiente", sexe: "F", naissance: "1985-06-15" },
+  lignes: [{ kind: "med", dci: "Paracétamol", dosage: "1 g", forme: "comprimé", posologie: "1 comprimé jusqu’à 3 fois par jour si douleur", duree: "5 jours", quantite: "1 boîte" },
+    { kind: "med", dci: "Amoxicilline", dosage: "1 g", forme: "comprimé dispersible", posologie: "1 comprimé matin et soir", duree: "6 jours", quantite: "1 boîte" }] };
+const needsOnboarding = () => backend?.mode === "supabase" && !S.settings.configured;
+function enterApp() { if (S.admin) renderAdmin(); else if (needsOnboarding()) renderOnboarding(1); else bootApp(); }
+function obSample() { return { ...SAMPLE_ORDO, lieu: state.obDraft.ville || "", prescripteur: { ...state.obDraft } }; }
+function fitBox(id) { const box = document.getElementById(id), p = box?.querySelector(".paper"); if (!p || !box.clientWidth) return; const base = p.classList.contains("a4") ? 794 : 560; p.style.zoom = String(Math.min(1, (box.clientWidth - 26) / base)); }
+let obTimer;
+function scheduleObPreview() { clearTimeout(obTimer); obTimer = setTimeout(() => { const el = $("#obPaper"); if (el && state.obDraft) { el.innerHTML = paperHTML(obSample()); fitBox("obPreview"); } }, 120); }
+function renderOnboarding(step = 1) {
+  state.ob = step; if (!state.obDraft) state.obDraft = clone(S.settings);
+  const d = state.obDraft;
+  $(".side").hidden = true; $(".shell").classList.add("auth-mode");
+  const f = (k, label, attrs = "", cls = "", hint = "") => `<label class="field ${cls}"><span>${label}</span><input id="ob-${k}" data-ob="${k}" value="${esc(d[k] ?? "")}" ${attrs}>${hint ? `<small>${hint}</small>` : ""}</label>`;
+  const choice = (k, v, inner, label, sub) => `<label class="choice"><input type="radio" name="ob-${k}" id="ob-${k}-${v}" data-ob="${k}" value="${v}" ${(d[k] || DEFAULT_SETTINGS[k]) === v ? "checked" : ""}><span class="choice-b">${inner}<strong>${label}</strong><small>${sub}</small></span></label>`;
+  const bodies = {
+    1: `<div><h2>Votre identité</h2><p class="note">Elle figure en haut de chaque ordonnance. Votre nom, votre prénom et votre RPPS viennent de l’annuaire santé et ne peuvent pas être modifiés.</p></div>
+      <div class="verified"><span class="pill">✓ Vérifié dans l’annuaire santé</span><strong>${esc(doctorName(d))}</strong><span class="mono">RPPS ${esc(d.rpps)}</span></div>
+      <div class="grid"><label class="field"><span>Titre</span><select id="ob-titre" data-ob="titre">${["Dr", "Pr"].map((t) => `<option ${d.titre === t ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+        ${f("specialite", "Spécialité", 'list="specialites" required', "span2")}
+        <label class="field span-all"><span>Titres et qualifications (facultatif)</span><textarea id="ob-qualifs" data-ob="qualifs" rows="3" placeholder="ex. Ancien interne des hôpitaux&#10;DU de médecine du sport">${esc(d.qualifs)}</textarea><small>Une ligne par titre.</small></label></div>
+      <datalist id="specialites">${SPECIALITES.map((x) => `<option value="${esc(x)}">`).join("")}</datalist>`,
+    2: `<div><h2>Votre cabinet</h2><p class="note">Ces coordonnées permettent aux patients et aux pharmaciens de vous joindre.</p></div>
+      <div class="grid"><label class="field span-all"><span>Adresse du cabinet *</span><textarea id="ob-adresse" data-ob="adresse" rows="2" required placeholder="ex. 12 rue de Siam">${esc(d.adresse)}</textarea></label>
+        ${f("cp", "Code postal *", 'required inputmode="numeric" maxlength="5"')}${f("ville", "Ville *", "required")}
+        ${f("tel", "Téléphone du cabinet", 'type="tel"')}${f("email", "E-mail affiché", 'type="email"')}
+        ${f("am", "N° Assurance Maladie", 'placeholder="ex. 29 1 23456 7"')}${f("finess", "N° FINESS", "", "", "Si vous exercez en établissement")}
+        ${f("conventionnement", "Conventionnement", 'list="conventions"', "span2")}${f("horaires", "Horaires ou mention de rendez-vous", "", "span2")}</div>
+      <datalist id="conventions"><option value="Conventionné secteur 1"><option value="Conventionné secteur 2"><option value="Conventionné secteur 2 – OPTAM"><option value="Non conventionné"></datalist>`,
+    3: `<div><h2>Le style de vos ordonnances</h2><p class="note">Choisissez l’apparence de vos ordonnances. L’aperçu se met à jour à chaque choix.</p></div>
+      <div class="field"><span>Couleur</span><div class="swatches" role="radiogroup" aria-label="Couleur">${COLORS.map(([c, n], i) => `<label class="swatch"><input type="radio" id="ob-couleur-${i}" name="ob-couleur" data-ob="couleur" value="${c}" ${accentOf(d) === c ? "checked" : ""}><i style="--c:${c}"></i><span>${n}</span></label>`).join("")}</div></div>
+      <div class="field"><span>Police</span><div class="choices" role="radiogroup" aria-label="Police">
+        ${choice("police", "sans", `<span class="aa" style="font-family:Helvetica,Arial,sans-serif">Aa</span>`, "Moderne", "Lignes nettes, très lisible")}
+        ${choice("police", "serif", `<span class="aa" style="font-family:Georgia,'Times New Roman',serif">Aa</span>`, "Classique", "Style traditionnel à empattements")}</div></div>
+      <div class="field"><span>Disposition de l’en-tête</span><div class="choices" role="radiogroup" aria-label="Disposition">
+        ${choice("disposition", "gauche", `<span class="mini-doc"><i class="b"></i><i></i><i class="r"></i></span>`, "À gauche", "Identifiants alignés à droite")}
+        ${choice("disposition", "centre", `<span class="mini-doc c"><i class="b"></i><i></i><i class="r"></i></span>`, "Centré", "En-tête symétrique")}</div></div>
+      <div class="field"><span>Format du papier</span><div class="choices" role="radiogroup" aria-label="Format">
+        ${choice("format", "A5", "", "A5", "Demi-feuille, le format usuel")}${choice("format", "A4", "", "A4", "Feuille entière")}</div></div>`,
+    4: `<div><h2>Votre signature</h2><p class="note">Facultatif. Sans image, un emplacement est laissé pour signer à la main.</p></div>
+      <div class="img-row"><div class="img-prev">${d.signature ? `<img src="${esc(d.signature)}" alt="Signature">` : "Aucune signature"}</div>
+        <label class="btn file-btn">Choisir une image<input type="file" id="obSig" accept="image/png,image/jpeg,image/webp"></label>${d.signature ? `<button type="button" class="btn ghost" data-act="ob-sig-remove">Retirer</button>` : ""}</div>
+      <p class="note">Photo ou scan de votre signature sur fond blanc.</p>
+      <dl class="sum"><dt>Médecin</dt><dd>${esc(doctorName(d))} · ${esc(d.specialite || "")}</dd><dt>Cabinet</dt><dd>${esc([lines(d.adresse).join(", "), [d.cp, d.ville].filter(Boolean).join(" ")].filter(Boolean).join(", "))}</dd><dt>Style</dt><dd>${d.police === "serif" ? "Classique" : "Moderne"}, en-tête ${d.disposition === "centre" ? "centré" : "à gauche"}, format ${esc(d.format || "A5")}</dd></dl>
+      <p class="note">Vous pourrez tout modifier plus tard dans Paramètres.</p>`,
+  };
+  $("#main").innerHTML = `<div class="ob">
+    <div class="ob-main"><div class="auth-brand"><div class="brand-mark" aria-hidden="true"></div>Ordonnancier</div>
+      <div><span class="eyebrow">Configurer votre espace · étape ${step} sur ${OB_STEPS.length}</span></div>
+      <ol class="ob-steps">${OB_STEPS.map((n, i) => `<li class="${i + 1 === step ? "cur" : i + 1 < step ? "done" : ""}" ${i + 1 === step ? 'aria-current="step"' : ""}>${n}</li>`).join("")}</ol>
+      <div id="authMsg"></div>
+      <form data-form="ob" class="card ob-card" novalidate>${bodies[step]}
+        <div class="ob-nav">${step > 1 ? `<button type="button" class="btn ghost" data-act="ob-prev">Précédent</button>` : `<span></span>`}<button type="submit" class="btn primary">${step < OB_STEPS.length ? "Continuer" : "Accéder à mon espace"}</button></div></form>
+    </div>
+    <aside class="ob-preview" id="obPreview" aria-label="Aperçu de vos ordonnances"><div class="prev-cap"><span class="eyebrow">Aperçu de vos ordonnances</span></div><div id="obPaper">${paperHTML(obSample())}</div></aside>
+  </div>`;
+  fitBox("obPreview"); window.scrollTo(0, 0);
+  setTimeout(() => $(".ob-card input:not([type=radio]):not([type=file]), .ob-card select")?.focus(), 30);
+}
+async function submitOnboarding() {
+  const d = state.obDraft, step = state.ob;
+  if (step === 1 && !String(d.specialite || "").trim()) return authMsg("Indiquez votre spécialité.", true);
+  if (step === 2) {
+    const miss = [["adresse", "l’adresse"], ["cp", "le code postal"], ["ville", "la ville"]].filter(([k]) => !String(d[k] || "").trim()).map(([, l]) => l);
+    if (miss.length) return authMsg("Renseignez " + miss.join(", ") + " du cabinet.", true);
+  }
+  const done = step === OB_STEPS.length;
+  try { await saveSettings({ ...d, configured: done ? true : !!S.settings.configured }); } catch (e) { return; }
+  if (!done) { renderOnboarding(step + 1); return; }
+  state.obDraft = null; toast("Votre espace est prêt."); bootApp();
+}
+
+/* ---------- Administration de la plateforme ---------- */
+function admStatus(m) {
+  if (m.suspendu) return `<span class="pill bad">Suspendu</span>`;
+  if (!m.email_confirme) return `<span class="pill warn">E-mail à confirmer</span>`;
+  if (!m.configure) return `<span class="pill warn">Espace à configurer</span>`;
+  return `<span class="pill">Actif</span>`;
+}
+const fmtDT = (x) => (x ? new Date(x).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "—");
+function admRows() {
+  const t = norm(state.admQ || ""), list = (state.admList || []).filter((m) => !t || norm(`${m.nom} ${m.prenom} ${m.rpps} ${m.email} ${m.ville || ""} ${m.specialite || ""}`).includes(t));
+  if (!list.length) return `<tr><td colspan="8" class="list-empty">${(state.admList || []).length ? "Aucun médecin ne correspond." : "Aucun médecin inscrit pour l’instant."}</td></tr>`;
+  return list.map((m) => `<tr>
+    <td><div class="who">Dr ${esc(m.prenom)} ${esc(String(m.nom).toUpperCase())}</div><div class="sub">${esc(m.specialite || "Spécialité non renseignée")}${m.ville ? " · " + esc(m.ville) : ""}</div></td>
+    <td class="mono">${esc(m.rpps)}</td><td class="clip">${esc(m.email)}</td>
+    <td class="mono">${fmtDT(m.inscrit_le)}</td><td class="mono">${fmtDT(m.derniere_connexion)}</td>
+    <td class="r mono">${m.nb_patients} / ${m.nb_ordonnances}</td><td>${admStatus(m)}</td>
+    <td class="acts">${m.suspendu ? `<button type="button" class="btn sm" data-act="adm-suspend" data-id="${m.user_id}" data-on="0">Réactiver</button>` : `<button type="button" class="btn sm danger" data-act="adm-suspend" data-id="${m.user_id}" data-on="1">Suspendre</button>`}</td></tr>`).join("");
+}
+async function loadAdmin() {
+  const { data, error } = await sb.rpc("admin_medecins");
+  if (error) { toast("La liste des médecins n’a pas pu être chargée.", true); state.admList = []; return; }
+  state.admList = data || [];
+}
+async function renderAdmin(reload = true) {
+  $(".side").hidden = true; $(".shell").classList.add("auth-mode");
+  if (reload) { $("#main").innerHTML = `<div class="loading">Chargement des médecins inscrits…</div>`; await loadAdmin(); }
+  const L = state.admList || [], since = Date.now() - 30 * 864e5;
+  const kpi = (l, v) => `<div class="kpi"><span class="eyebrow">${l}</span><span class="v">${v}</span></div>`;
+  const pw = S.admin?.mdp_a_changer ? `<form data-form="adm-pass" class="card" style="display:flex;flex-direction:column;gap:12px"><div class="banner" style="margin:0"><p><strong>Choisissez votre mot de passe.</strong> Votre compte a été créé avec un mot de passe temporaire : remplacez-le maintenant.</p></div>
+      <div class="grid"><label class="field"><span>Nouveau mot de passe (12 caractères minimum)</span><input type="password" id="ap-1" name="password" minlength="12" autocomplete="new-password" required></label><label class="field"><span>Confirmer</span><input type="password" id="ap-2" name="password2" minlength="12" autocomplete="new-password" required></label></div>
+      <div><button type="submit" class="btn primary">Enregistrer mon mot de passe</button></div></form>` : "";
+  $("#main").innerHTML = `<div class="adm">
+    <div class="adm-top"><div class="auth-brand"><div class="brand-mark" aria-hidden="true"></div>Ordonnancier · Administration</div>
+      <div class="row"><button type="button" class="btn" data-act="adm-refresh">Actualiser</button><button type="button" class="btn" data-act="adm-csv">Exporter (CSV)</button><button type="button" class="btn ghost" data-act="logout">Se déconnecter</button></div></div>
+    ${pw}
+    <section class="kpis">${kpi("Médecins inscrits", L.length)}${kpi("Comptes actifs", L.filter((m) => m.email_confirme && !m.suspendu).length)}${kpi("Connectés sur 30 jours", L.filter((m) => m.derniere_connexion && new Date(m.derniere_connexion) > since).length)}${kpi("Ordonnances créées", L.reduce((a, m) => a + Number(m.nb_ordonnances || 0), 0))}</section>
+    <div class="toolbar"><input type="search" class="search" id="adm-q" data-adm-search placeholder="Nom, RPPS, e-mail, ville…" value="${esc(state.admQ || "")}" aria-label="Rechercher un médecin"><span class="note">Vous voyez les comptes et leur activité, jamais les patients ni le contenu des ordonnances.</span></div>
+    <div class="tablewrap"><table class="list"><thead><tr><th>Médecin</th><th>RPPS</th><th>E-mail</th><th>Inscription</th><th>Dernière connexion</th><th class="r">Patients / Ord.</th><th>Statut</th><th></th></tr></thead><tbody id="adm-rows">${admRows()}</tbody></table></div>
+  </div>`;
+}
+function admCSV() {
+  const cell = (v) => { const x = String(v ?? ""); return /[;"\n\r]/.test(x) ? `"${x.replace(/"/g, '""')}"` : x; };
+  const rows = [["Nom", "Prénom", "RPPS", "E-mail", "Spécialité", "Ville", "Inscription", "Dernière connexion", "E-mail confirmé", "Suspendu", "Patients", "Ordonnances"].join(";")];
+  (state.admList || []).forEach((m) => rows.push([m.nom, m.prenom, m.rpps, m.email, m.specialite, m.ville, fmtDT(m.inscrit_le), fmtDT(m.derniere_connexion), m.email_confirme ? "oui" : "non", m.suspendu ? "oui" : "non", m.nb_patients, m.nb_ordonnances].map(cell).join(";")));
+  saveFile(`medecins-inscrits-${todayISO()}.csv`, "﻿" + rows.join("\r\n"));
+}
+
+/* ---------- Exemple ---------- */
+async function loadExample() {
+  const now = new Date().toISOString(), y = new Date().getFullYear();
+  const p1 = { id: newId(), nom: "Durand (exemple)", prenom: "Claire", sexe: "F", naissance: `${y - 42}-03-12`, poids: "64", allergies: "Pénicillines (urticaire)", ald: false, createdAt: now };
+  const p2 = { id: newId(), nom: "Morel (exemple)", prenom: "Julien", sexe: "M", naissance: `${y - 67}-09-04`, poids: "82", ald: true, aldLibelle: "Diabète de type 2", createdAt: now };
+  for (const p of [p1, p2]) await save("patients", p);
+  const meds = [
+    { id: newId(), dci: "Paracétamol", dosage: "1 g", forme: "comprimé", posologie: "1 comprimé jusqu’à 3 fois par jour si douleur ou fièvre, en respectant 6 heures entre deux prises (maximum 3 g par jour)", duree: "5 jours", quantite: "1 boîte" },
+    { id: newId(), dci: "Amoxicilline", dosage: "1 g", forme: "comprimé", posologie: "1 comprimé matin et soir", duree: "6 jours", quantite: "1 boîte" },
+    { id: newId(), dci: "Metformine", dosage: "1000 mg", forme: "comprimé pelliculé", posologie: "1 comprimé matin et soir au cours des repas", duree: "3 mois", quantite: "QSP 3 mois" },
+  ];
+  for (const m of meds) await save("meds", m);
+  const asLine = (m, zone = "ald") => ({ ...blankMed(), ...m, id: undefined, kind: "med", zone });
+  const mod = { id: newId(), nom: "Bilan sanguin de suivi (exemple)", type: "biologie", lignes: [{ kind: "texte", texte: "NFS, CRP\nGlycémie à jeun, HbA1c\nCréatininémie avec estimation du DFG\nBilan lipidique (EAL)", zone: "ald" }], mentions: "À réaliser à jeun." };
+  await save("modeles", mod);
+  const o1 = Object.assign(newOrdo(p2.id), { type: "bizone", lignes: [asLine(meds[2], "ald"), asLine(meds[0], "hors")], renouvellement: 2 });
+  await save("ordos", finalizeDraft(o1));
+  toast("Exemple chargé : 2 patients, 3 favoris, 1 modèle et 1 ordonnance.");
+  render();
+}
+
+/* ---------- Actions ---------- */
+function insertLines(newLines) {
+  const d = state.draft, onlyBlank = d.lignes.length === 1 && isEmptyLine(d.lignes[0]);
+  if (onlyBlank) d.lignes = newLines; else d.lignes.push(...newLines);
+}
+function fromModele(m, base) {
+  const o = base || newOrdo("");
+  o.type = m.type || o.type; o.lignes = clone(m.lignes || []); if (m.mentions && !o.mentions) o.mentions = m.mentions; return o;
+}
+const A = {
+  nav: (b) => { state.view === "edit" && state.dirty ? confirmModal("Quitter sans enregistrer ?", "Les modifications de cette ordonnance seront perdues.", "Quitter", () => go(b.dataset.view)) : go(b.dataset.view); },
+  "new-ordo": (b) => { state.pickQ = ""; go("edit", { draft: newOrdo(b.dataset.patient || (state.view === "patient" ? state.patientId : "")), isNew: true }); focusEditor(); },
+  pick: (b) => choosePatient(getPatient(b.dataset.id)),
+  "ac-pick": (b) => {
+    const i = +b.dataset.i, l = state.draft.lignes[i];
+    if (b.dataset.fav) { const m = S.meds.find((x) => x.id === b.dataset.fav); const { id, updatedAt, ...rest } = m; Object.assign(l, rest); l.posoAuto = false; }
+    else { const r = MEDS_DB.rows[+b.dataset.k]; Object.assign(l, { dci: r.dci, dosage: r.dosage, forme: r.forme }); const po = posoFor(r); if (po && !String(l.posologie || "").trim()) { l.posologie = po; l.posoAuto = true; } }
+    rerenderEditor(`l${i}-posologie`);
+  },
+  "pick-clear": () => { const d = state.draft; d.patientId = ""; d.patient = null; state.pickQ = ""; rerenderEditor("ed-pq"); renderPick(); },
+  "dup-line": (b) => { const i = +b.dataset.i, ls = state.draft.lignes; ls.splice(i + 1, 0, clone(ls[i])); rerenderEditor(`l${i + 1}-${ls[i].kind === "texte" ? "texte" : "posologie"}`); },
+  "draft-resume": () => { const x = pendingDraft(); if (!x) { render(); return; } state.pickQ = ""; go("edit", { draft: x.draft, isNew: x.isNew }); state.dirty = true; focusEditor(); },
+  "draft-drop": () => { clearAutosave(); render(); },
+  open: (b) => go("ordo", { ordoId: b.dataset.id }),
+  "open-patient": (b) => go("patient", { patientId: b.dataset.id }),
+  "load-example": () => loadExample(),
+  pdf: (b) => downloadPDF(getOrdo(b.dataset.id)),
+  "edit-ordo": (b) => go("edit", { draft: clone(getOrdo(b.dataset.id)), isNew: false }),
+  renew: (b) => { const s = getOrdo(b.dataset.id); const o = newOrdo(s.patientId); Object.assign(o, { type: s.type, lignes: clone(s.lignes), renouvellement: s.renouvellement || 0, mentions: s.mentions || "", poids: s.poids || o.poids }); if (!getPatient(s.patientId)) o.patient = s.patient; go("edit", { draft: o, isNew: true }); state.dirty = true; autosave(); },
+  "del-ordo": (b) => { const o = getOrdo(b.dataset.id); confirmModal("Supprimer cette ordonnance ?", `Ordonnance du ${fmtDate(o.date)} pour ${patientName(o.patient)}. Cette action est définitive.`, "Supprimer", async () => { await remove("ordos", o.id); toast("Ordonnance supprimée."); go("ordonnances"); }, true); },
+  "save-modele": (b) => { const o = getOrdo(b.dataset.id);
+    openModal(`<form data-form="modele-new" data-id="${o.id}"><div style="display:flex;flex-direction:column;gap:16px"><h2>Enregistrer comme modèle</h2><p>Les prescriptions et mentions de cette ordonnance seront réutilisables pour n’importe quel patient.</p>
+      <label class="field"><span>Nom du modèle</span><input id="mn-nom" name="nom" required placeholder="ex. Angine bactérienne adulte"></label>
+      <div class="modal-actions"><button type="button" class="btn ghost" data-act="modal-close">Annuler</button><button type="submit" class="btn primary">Enregistrer le modèle</button></div></div></form>`, "narrow"); },
+  "use-modele": (b) => { const m = S.modeles.find((x) => x.id === b.dataset.id); state.pickQ = ""; go("edit", { draft: fromModele(m), isNew: true }); state.dirty = true; focusEditor(); },
+  "modele-edit": (b) => { const m = S.modeles.find((x) => x.id === b.dataset.id);
+    openModal(`<form data-form="modele" data-id="${m.id}"><div style="display:flex;flex-direction:column;gap:16px"><h2>Modèle</h2>
+      <label class="field"><span>Nom</span><input id="me-nom" name="nom" required value="${esc(m.nom)}"></label><p>${esc(TYPES[m.type] || "")} · ${esc(summary(m))}</p>
+      <div class="modal-actions"><button type="button" class="btn danger" data-act="modele-del" data-id="${m.id}" style="margin-right:auto">Supprimer</button><button type="button" class="btn ghost" data-act="modal-close">Annuler</button><button type="submit" class="btn primary">Renommer</button></div></div></form>`, "narrow"); },
+  "modele-del": (b) => { const m = S.modeles.find((x) => x.id === b.dataset.id); confirmModal("Supprimer ce modèle ?", `« ${m.nom} » sera supprimé. Les ordonnances déjà rédigées ne changent pas.`, "Supprimer", async () => { await remove("modeles", m.id); toast("Modèle supprimé."); render(); }, true); },
+  "patient-new": (b) => openModal(patientForm(prefillPatient(b.dataset.prefill), !!b.dataset.inline)),
+  "patient-edit": (b) => openModal(patientForm(getPatient(b.dataset.id))),
+  "patient-del": (b) => { const p = getPatient(b.dataset.id); confirmModal("Supprimer ce patient ?", `La fiche de ${patientName(p)} sera supprimée. Ses ordonnances restent consultables.`, "Supprimer", async () => { await remove("patients", p.id); toast("Patient supprimé."); go("patients"); }, true); },
+  "med-new": () => openModal(medForm()),
+  "med-edit": (b) => openModal(medForm(S.meds.find((x) => x.id === b.dataset.id))),
+  "med-del": (b) => { const m = S.meds.find((x) => x.id === b.dataset.id); confirmModal("Supprimer ce favori ?", `« ${medTitle(m)} » sera retiré de vos favoris.`, "Supprimer", async () => { await remove("meds", m.id); toast("Favori supprimé."); render(); }, true); },
+  "add-med": () => { state.draft.lignes.push(blankMed()); rerenderEditor(`l${state.draft.lignes.length - 1}-dci`); },
+  "add-text": () => { state.draft.lignes.push(blankText()); rerenderEditor(`l${state.draft.lignes.length - 1}-texte`); },
+  "del-line": (b) => { state.draft.lignes.splice(+b.dataset.i, 1); if (!state.draft.lignes.length) state.draft.lignes.push(blankMed()); rerenderEditor(); },
+  "move-line": (b) => { const i = +b.dataset.i, j = i + +b.dataset.dir, ls = state.draft.lignes; if (j < 0 || j >= ls.length) return; [ls[i], ls[j]] = [ls[j], ls[i]]; rerenderEditor(); },
+  "fav-line": async (b) => { const l = state.draft.lignes[+b.dataset.i]; if (!String(l.dci || "").trim()) { toast("Indiquez d’abord le médicament.", true); return; }
+    const key = (m) => [m.dci, m.dosage, m.forme].map((x) => String(x || "").trim().toLowerCase()).join("|");
+    const old = S.meds.find((m) => key(m) === key(l));
+    await save("meds", { id: old?.id || newId(), dci: l.dci.trim(), dosage: l.dosage || "", forme: l.forme || "", posologie: l.posologie || "", duree: l.duree || "", quantite: l.quantite || "" });
+    toast(old ? "Favori mis à jour." : "Ajouté à vos favoris."); rerenderEditor(); },
+  preview: () => openModal(`<div class="prev-cap"><h2>Aperçu</h2><button type="button" class="btn ghost" data-act="modal-close">Fermer</button></div>${paperHTML(previewOrdo(state.draft))}`, "wide"),
+  "cancel-edit": () => { const d = state.draft; getOrdo(d.id) ? go("ordo", { ordoId: d.id }) : d.patientId ? go("patient", { patientId: d.patientId }) : go("ordonnances"); },
+  "save-ordo": () => saveDraft(false),
+  "save-pdf": () => saveDraft(true),
+  "modal-close": () => closeModal(),
+  auth: (b) => renderAuth(b.dataset.mode),
+  "ob-prev": () => renderOnboarding(Math.max(1, state.ob - 1)),
+  "adm-refresh": () => renderAdmin(true),
+  "adm-csv": () => admCSV(),
+  "adm-suspend": (b) => { const m = (state.admList || []).find((x) => x.user_id === b.dataset.id), on = b.dataset.on === "1"; if (!m) return;
+    confirmModal(on ? "Suspendre ce compte ?" : "Réactiver ce compte ?", on ? `Dr ${m.prenom} ${m.nom} ne pourra plus se connecter ni générer d’ordonnance. Ses données sont conservées.` : `Dr ${m.prenom} ${m.nom} pourra de nouveau se connecter.`, on ? "Suspendre" : "Réactiver", async () => {
+      const { error } = await sb.rpc("admin_suspendre", { p_user: m.user_id, p_suspendre: on });
+      if (error) { toast("L’opération a échoué.", true); return; }
+      toast(on ? "Compte suspendu." : "Compte réactivé."); renderAdmin(true); }, on); },
+  "ob-sig-remove": () => { state.obDraft.signature = ""; renderOnboarding(state.ob); },
+  "ob-start": () => { state.obDraft = null; renderOnboarding(1); },
+  logout: async () => { clearAutosave(); try { await sb.auth.signOut(); } catch (e) {} location.reload(); },
+  "confirm-ok": async (b) => { const f = state.onConfirm; b.disabled = true; closeModal(); if (f) { try { await f(); } catch (e) { console.error(e); } } },
+  "sig-remove": () => { state.imgDraft.signature = ""; keepSettingsForm(); },
+  "backup-export": () => saveFile(`ordonnancier-sauvegarde-${todayISO()}.json`, JSON.stringify({ app: "ordonnancier", version: 1, exportedAt: new Date().toISOString(), settings: S.settings, patients: S.patients, meds: S.meds, modeles: S.modeles, ordos: S.ordos }, null, 2)),
+};
+
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-act]"); if (!b) { if (e.target.id === "modal") closeModal(); return; }
+  if (b.matches("input,select,label")) return;
+  const f = A[b.dataset.act]; if (f) { e.preventDefault(); Promise.resolve(f(b, e)).catch((err) => console.error(err)); }
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && state.modal) closeModal();
+  if (e.key === "Enter" && e.target.matches("tr[data-act]")) e.target.click();
+  const t = e.target, typing = t?.matches?.("input,textarea,select") || t?.isContentEditable;
+  if (t?.id === "ed-pq") {
+    if (e.key === "Enter") { e.preventDefault(); $("#pickList [data-act]")?.click(); }
+    if (e.key === "ArrowDown") { e.preventDefault(); renderPick(); $("#pickList button")?.focus(); }
+    if (e.key === "Escape") { $("#pickList").hidden = true; }
+  } else if (t?.dataset?.ac !== undefined) {
+    const box = document.getElementById(`ac-${t.dataset.ac}`);
+    if (e.key === "ArrowDown") { e.preventDefault(); renderAc(+t.dataset.ac); box?.querySelector("button")?.focus(); }
+    if (e.key === "Enter" && box && !box.hidden && box.querySelector("button")) { e.preventDefault(); box.querySelector("button").click(); }
+    if (e.key === "Escape" && box) box.hidden = true;
+  } else if (t?.closest?.("#pickList,.ac-list") && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+    e.preventDefault(); const n = e.key === "ArrowDown" ? t.nextElementSibling : t.previousElementSibling;
+    if (n?.matches("button")) n.focus(); else if (e.key === "ArrowUp") t.closest(".pick-in,.ac")?.querySelector("input")?.focus();
+  }
+  if ((t?.id === "q-accueil" || t?.id === "q-patients") && e.key === "Enter") { e.preventDefault(); (t.id === "q-accueil" ? $("#home-results [data-act]") : $("#rows [data-act]"))?.click(); }
+  if (!state.modal && !typing && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    if ((e.key === "n" || e.key === "N") && state.view !== "edit") { e.preventDefault(); A["new-ordo"]({ dataset: {} }); }
+    else if (e.key === "/") { e.preventDefault(); const s2 = document.querySelector('input[type="search"]'); if (s2) s2.focus(); else { go("accueil"); $("#q-accueil")?.focus(); } }
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && state.view === "edit" && !state.modal) { e.preventDefault(); saveDraft(true).catch((err) => console.error(err)); }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s" && state.view === "edit" && !state.modal) { e.preventDefault(); saveDraft(false).catch((err) => console.error(err)); }
+});
+document.addEventListener("input", (e) => {
+  const t = e.target;
+  if (t.dataset.search) {
+    const k = t.dataset.search; state.q[k] = t.value;
+    if (k === "accueil") $("#home-results").innerHTML = patientResults(t.value); else $("#rows").innerHTML = k === "patients" ? patientRows() : ordoRows();
+    return;
+  }
+  if (t.dataset.ob) { state.obDraft[t.dataset.ob] = t.value; scheduleObPreview(); return; }
+  if ("admSearch" in t.dataset) { state.admQ = t.value; $("#adm-rows").innerHTML = admRows(); return; }
+  if ("pick" in t.dataset) { state.pickQ = t.value; renderPick(); return; }
+  if (state.view !== "edit" || !state.draft) return;
+  const d = state.draft;
+  if (t.dataset.f) {
+    d[t.dataset.f] = t.value; state.dirty = true;
+    if (t.dataset.f === "patientId") { const p = getPatient(t.value); if (p) { d.patient = snapPatient(p); if (!d.poids && p.poids) d.poids = p.poids; if (p.ald && d.type === "standard") d.type = "bizone"; } rerenderEditor(); return; }
+    if (t.dataset.f === "type") { rerenderEditor(); return; }
+    schedulePreview();
+  } else if (t.dataset.l) {
+    const i = +t.closest(".rxline").dataset.i, k = t.dataset.l;
+    d.lignes[i][k] = t.type === "checkbox" ? t.checked : t.value; state.dirty = true;
+    if (k === "nr") { rerenderEditor(`l${i}-nr`); return; }
+    if (k === "dci") renderAc(i);
+    if (k === "posologie" && d.lignes[i].posoAuto) { d.lignes[i].posoAuto = false; t.closest(".rx-body")?.querySelector(".hint")?.remove(); }
+    schedulePreview();
+  }
+});
+document.addEventListener("change", async (e) => {
+  const t = e.target;
+  if (t.id === "addFav" && t.value) { const m = S.meds.find((x) => x.id === t.value); const { id, updatedAt, ...rest } = m; insertLines([{ ...blankMed(), ...rest, kind: "med" }]); rerenderEditor(); return; }
+  if (t.id === "addModele" && t.value) { const m = S.modeles.find((x) => x.id === t.value); insertLines(clone(m.lignes || [])); if (m.type && m.type !== "standard") state.draft.type = m.type; if (m.mentions && !state.draft.mentions) state.draft.mentions = m.mentions; rerenderEditor(); return; }
+  if (t.id === "obSig" && t.files?.[0]) { try { state.obDraft.signature = await resizeImage(t.files[0], 600, 220); renderOnboarding(state.ob); } catch (err) { toast("Cette image n’a pas pu être lue. Essayez un fichier PNG ou JPEG.", true); } return; }
+  if (t.id === "sigFile" && t.files?.[0]) { try { state.imgDraft.signature = await resizeImage(t.files[0], 600, 220); keepSettingsForm(); } catch (err) { toast("Cette image n’a pas pu être lue. Essayez un fichier PNG ou JPEG.", true); } return; }
+  if (t.id === "importFile" && t.files?.[0]) {
+    let data; try { data = JSON.parse(await t.files[0].text()); } catch (err) { toast("Ce fichier n’est pas une sauvegarde valide.", true); return; }
+    if (!data || data.app !== "ordonnancier") { toast("Ce fichier n’est pas une sauvegarde Ordonnancier.", true); return; }
+    confirmModal("Importer cette sauvegarde ?", `${(data.patients || []).length} patients, ${(data.meds || []).length} favoris, ${(data.modeles || []).length} modèles et ${(data.ordos || []).length} ordonnances. Les éléments portant le même identifiant seront remplacés.`, "Importer", async () => {
+      if (data.settings) await saveSettings({ ...DEFAULT_SETTINGS, ...data.settings });
+      for (const k of COLS) for (const o of data[k] || []) if (o && o.id) await save(k, o);
+      toast("Sauvegarde importée."); go("accueil");
+    });
+  }
+});
+document.addEventListener("submit", async (e) => {
+  const form = e.target, kind = form.dataset.form; if (!kind) return; e.preventDefault();
+  if (["login", "signup", "forgot", "recovery"].includes(kind)) { handleAuthForm(kind, form); return; }
+  if (kind === "ob") { submitOnboarding(); return; }
+  if (kind === "adm-pass") {
+    const af = new FormData(form), pw = String(af.get("password") || "");
+    if (pw.length < 12) { toast("Choisissez un mot de passe d’au moins 12 caractères.", true); return; }
+    if (pw !== String(af.get("password2") || "")) { toast("Les deux mots de passe ne sont pas identiques.", true); return; }
+    const { error } = await sb.auth.updateUser({ password: pw });
+    if (error) { toast(authError(error), true); return; }
+    await sb.rpc("admin_mot_de_passe_change"); S.admin.mdp_a_changer = false; toast("Mot de passe enregistré."); renderAdmin(false); return;
+  }
+  const fd = new FormData(form), val = (k) => String(fd.get(k) ?? "").trim();
+  if (kind === "patient") {
+    const old = getPatient(form.dataset.id) || { id: newId(), createdAt: new Date().toISOString() };
+    const p = { ...clone(old), nom: val("nom"), prenom: val("prenom"), sexe: val("sexe"), naissance: val("naissance"), poids: val("poids"), tel: val("tel"), ald: !!form.querySelector("#pf-ald")?.checked, aldLibelle: val("aldLibelle"), allergies: val("allergies"), notes: val("notes") };
+    if (!p.nom || !p.prenom || !p.naissance) { toast("Le nom, le prénom et la date de naissance sont nécessaires.", true); return; }
+    await save("patients", p); closeModal(); toast("Patient enregistré.");
+    if (form.dataset.inline && state.view === "edit") choosePatient(p);
+    else if (!form.dataset.id) go("patient", { patientId: p.id }); else render();
+  }
+  if (kind === "med") {
+    const old = S.meds.find((x) => x.id === form.dataset.id) || { id: newId() };
+    const m = { ...clone(old), dci: val("dci"), dosage: val("dosage"), forme: val("forme"), posologie: val("posologie"), duree: val("duree"), quantite: val("quantite") };
+    if (!m.dci) { toast("Indiquez le médicament.", true); return; }
+    await save("meds", m); closeModal(); toast("Favori enregistré."); render();
+  }
+  if (kind === "modele-new") {
+    const o = getOrdo(form.dataset.id), nom = val("nom"); if (!nom) return;
+    const old = S.modeles.find((m) => (m.nom || "").toLowerCase() === nom.toLowerCase());
+    await save("modeles", { id: old?.id || newId(), nom, type: o.type, lignes: clone(o.lignes), mentions: o.mentions || "" });
+    closeModal(); toast(old ? "Modèle mis à jour." : "Modèle enregistré.");
+  }
+  if (kind === "modele") { const m = clone(S.modeles.find((x) => x.id === form.dataset.id)); m.nom = val("nom") || m.nom; await save("modeles", m); closeModal(); toast("Modèle renommé."); render(); }
+  if (kind === "settings") {
+    const s = { ...S.settings, ...settingsFromForm(form) };
+    if (state.imgDraft.signature !== undefined) s.signature = state.imgDraft.signature;
+    await saveSettings(s); state.imgDraft = {}; toast("Paramètres enregistrés."); render();
+  }
+});
+
+document.addEventListener("focusin", (e) => { if (e.target.id === "ed-pq") renderPick(); if (e.target.dataset?.ac !== undefined) renderAc(+e.target.dataset.ac); });
+document.addEventListener("mousedown", (e) => { if (e.target.closest?.("#pickList,.ac-list")) e.preventDefault(); });
+document.addEventListener("focusout", () => setTimeout(() => { document.querySelectorAll("#pickList,.ac-list").forEach((box) => { if (!box.parentElement.contains(document.activeElement)) box.hidden = true; }); }, 150));
+
+/* ---------- Démarrage ---------- */
+(async () => {
+  const h = location.hash.slice(1); if (TABS.includes(h)) state.view = h;
+  let r;
+  try { r = await initStore(); } catch (e) { console.error(e); $("#main").innerHTML = `<div class="loading">Le service est momentanément indisponible. Rechargez la page dans un instant.</div>`; return; }
+  if (r === "auth" || state.recovery) renderAuth(state.recovery ? "recovery" : "login"); else if (S.admin) renderAdmin(); else if (needsOnboarding()) renderOnboarding(1); else render();
+})();
+</script>
